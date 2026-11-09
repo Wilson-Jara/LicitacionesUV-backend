@@ -74,6 +74,23 @@ El workflow instala PostgreSQL 16 directamente en Ubuntu 24.04 y crea una base d
 pruebas propia. Usa socket Unix y autenticación local, sin contraseñas publicadas.
 Ejecuta toda la suite y cobertura. Su definición local no acredita que
 el CI remoto haya pasado. Ver [cobertura](docs/cobertura.md).
+### Revisión con DeepSeek
+
+El workflow `ai-review` revisa PR e issues del equipo en español y permite pedir
+otra revisión mediante la etiqueta `ai-review`. Una persona debe configurar
+`DEEPSEEK_API_KEY` en los secretos de Actions del repositorio; sin esa clave la
+revisión se omite. El script se ejecuta desde la rama base revisada, omite PR de
+forks y borradores y limita la revisión automática de issues a colaboradores.
+Debe estar integrado en la rama base para revisar PR y en la predeterminada para
+revisar issues. La primera incorporación del script no se revisa a sí misma.
+
+Se envían a la API oficial de DeepSeek la descripción, los cambios, los nombres
+y resultados de los checks y documentación pública del repositorio, con redacción
+de credenciales y exclusión de archivos sensibles. El límite es 75.000 caracteres
+por archivo de contexto y 120.000 de cambios por PR. La revisión no aprueba ni
+fusiona cambios; el equipo conserva la revisión y aprobación humanas.
+
+## Operación
 
 ## Frontend e integración futura
 

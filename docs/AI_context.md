@@ -54,6 +54,34 @@ La prueba del servidor real valida la terminación por SIGTERM en Windows
 (código null y señal SIGTERM). En Linux comprueba el cierre ordenado con código 0
 y sin señal de terminación; Windows no acredita ese cierre ordenado.
 
+## Revisión automática de PR e issues
+
+`.github/workflows/ai-review.yml` usa Node 22.22.0 y ejecuta el script de revisión
+de la rama base, con credenciales de checkout deshabilitadas. Los PR de forks y
+borradores se omiten; en issues la ejecución automática se limita a colaboradores.
+El job de revisión dispone de lectura de contenido y checks y escritura de
+comentarios en PR e issues; `verify` solo necesita lectura de contenido.
+
+El script `.github/scripts/ai-review.mjs` consulta metadatos, cambios y checks de
+GitHub y envía contenido redactado a la API oficial de DeepSeek. Usa
+`deepseek-flash`, esfuerzo bajo, 75.000 caracteres por archivo de contexto y
+120.000 para el diff completo. Omite archivos sensibles, también al renombrarlos,
+y redacta patrones de credenciales y las credenciales de ejecución antes de
+enviar o publicar contenido. La redacción no garantiza detectar todo secreto.
+No envía logs de CI ni ejecuta código del PR. La revisión es orientativa.
+
+Requiere que una persona configure `DEEPSEEK_API_KEY` como secreto de Actions;
+sin ella se omite la llamada. Se solicita otra revisión con la etiqueta
+`ai-review`. El workflow debe estar integrado en la rama base para ejecutar el
+script y en la rama predeterminada para atender eventos de issues.
+Las pruebas del revisor usan contenido ficticio y no hacen llamadas externas.
+
+## Validación local
+
+El 28 de octubre de 2026 pasaron verify y las 41 pruebas, incluida integración
+SQLite y servidor real, sin omisiones. La cobertura local fue 94,78 % líneas,
+95,73 % ramas y 97,87 % funciones. El workflow remoto no se ha ejecutado aquí.
+
 ## Integración y documentación
 
 El frontend Vite vive por separado y aún usa su mock, sin consumir VITE_API_BASE_URL.

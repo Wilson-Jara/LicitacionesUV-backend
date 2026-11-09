@@ -8,7 +8,7 @@ import { HttpError, sendJson } from '../lib/http.js'
  *   del frontend. Sin coincidencias responde 200 con `[]`.
  * - `GET /api/licitaciones/:id`: detalle de una licitación (HU #44); 404 si no existe.
  *
- * El repositorio se recibe por parámetro para poder usar SQLite en
+ * El repositorio se recibe por parámetro para poder usar PostgreSQL en
  * producción y uno en memoria en las pruebas.
  *
  * @param {{get: Function}} router - Enrutador creado con `createRouter()`.

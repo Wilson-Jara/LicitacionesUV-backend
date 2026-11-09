@@ -1,3 +1,7 @@
+> **Guía histórica.** El código activo usa PostgreSQL. Las instrucciones siguientes
+> documentan la versión SQLite anterior y no son la guía de ejecución vigente.
+> Consultar [PostgreSQL](PostgreSQL.md). Las bases SQLite existentes no se eliminan ni convierten.
+
 # SQLite: configuración y uso
 
 ## Requisitos

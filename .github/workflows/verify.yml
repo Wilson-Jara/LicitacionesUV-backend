@@ -18,6 +18,21 @@ jobs:
         with:
           node-version: '22.22.0'
           cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Preparar PostgreSQL 16 nativo
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-16
+          sudo pg_ctlcluster 16 main status || sudo pg_ctlcluster 16 main start
+          test_role="$(id -un)"
+          sudo -u postgres psql --set ON_ERROR_STOP=1 --set test_role="$test_role" <<'SQL'
+          SELECT format('CREATE ROLE %I LOGIN', :'test_role')
+          WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'test_role')
+          \gexec
+          SQL
+          sudo -u postgres createdb --owner="$test_role" --encoding=UTF8 --locale=C.UTF-8 --template=template0 licitaciones_test
+          echo "DATABASE_URL_TEST=postgresql://${test_role}@localhost/licitaciones_test?host=/var/run/postgresql" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run verify
       - run: npm run test:coverage

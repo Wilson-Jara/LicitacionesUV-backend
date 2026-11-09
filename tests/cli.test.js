@@ -79,8 +79,15 @@ describe('comandos y servidor SQLite', { timeout: 20000 }, () => {
       assert.deepEqual(await response.json(), loadMockLicitaciones()[1])
     } finally {
       child.kill('SIGTERM')
-      const [code] = await closed
-      assert.equal(code, 0)
+      const [code, signal] = await closed
+      if (process.platform === 'win32') {
+        // Windows termina el proceso por señal, sin ejecutar el cierre ordenado.
+        assert.equal(code, null)
+        assert.equal(signal, 'SIGTERM')
+      } else {
+        assert.equal(code, 0)
+        assert.equal(signal, null)
+      }
     }
   })
   it('los comandos fallan con salida de error si no pueden crear la base', async () => {

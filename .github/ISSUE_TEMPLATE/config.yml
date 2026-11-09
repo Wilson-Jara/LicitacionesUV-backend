@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Guía del backend
+    url: https://github.com/Wilson-Jara/LicitacionesUV-backend/blob/develop/README.md
+    about: Instalación, comandos y funcionamiento del backend.
+  - name: Contexto técnico para IA
+    url: https://github.com/Wilson-Jara/LicitacionesUV-backend/blob/develop/docs/AI_context.md
+    about: Arquitectura, convenciones y reglas de trabajo.

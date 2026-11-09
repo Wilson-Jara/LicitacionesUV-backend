@@ -46,6 +46,10 @@ CI usa Node 22.22.0 y ejecuta toda la suite, con bases SQLite temporales reales;
 no requiere servicios de base de datos externos ni variables de conexión de prueba.
 Las pruebas no usan la base de desarrollo. Ver `docs/cobertura.md`.
 
+La prueba del servidor real valida la terminación por SIGTERM en Windows
+(código null y señal SIGTERM). En Linux comprueba el cierre ordenado con código 0
+y sin señal de terminación; Windows no acredita ese cierre ordenado.
+
 ## Validación local
 
 El 28 de octubre de 2026 pasaron verify y las 41 pruebas, incluida integración

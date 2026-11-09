@@ -74,6 +74,7 @@ El workflow instala PostgreSQL 16 directamente en Ubuntu 24.04 y crea una base d
 pruebas propia. Usa socket Unix y autenticación local, sin contraseñas publicadas.
 Ejecuta toda la suite y cobertura. Su definición local no acredita que
 el CI remoto haya pasado. Ver [cobertura](docs/cobertura.md).
+
 ### Revisión con DeepSeek
 
 El workflow `ai-review` revisa PR e issues del equipo en español y permite pedir

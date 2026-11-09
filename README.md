@@ -59,6 +59,22 @@ propias en memoria o archivos temporales y las retiran al terminar; no usan la
 base de desarrollo ni necesitan variables de conexión. El CI solo instala Node y
 las herramientas de desarrollo. No hay build: Node ejecuta el JavaScript directamente.
 
+### Revisión con DeepSeek
+
+El workflow `ai-review` revisa PR e issues del equipo en español y permite pedir
+otra revisión mediante la etiqueta `ai-review`. Una persona debe configurar
+`DEEPSEEK_API_KEY` en los secretos de Actions del repositorio; sin esa clave la
+revisión se omite. El script se ejecuta desde la rama base revisada, omite PR de
+forks y borradores y limita la revisión automática de issues a colaboradores.
+Debe estar integrado en la rama base para revisar PR y en la predeterminada para
+revisar issues. La primera incorporación del script no se revisa a sí misma.
+
+Se envían a la API oficial de DeepSeek la descripción, los cambios, los nombres
+y resultados de los checks y documentación pública del repositorio, con redacción
+de credenciales y exclusión de archivos sensibles. El límite es 75.000 caracteres
+por archivo de contexto y 120.000 de cambios por PR. La revisión no aprueba ni
+fusiona cambios; el equipo conserva la revisión y aprobación humanas.
+
 ## Operación
 
 SQLite activa claves foráneas, modo WAL y espera de bloqueos de hasta cinco segundos.

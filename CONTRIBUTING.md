@@ -28,9 +28,9 @@ npm run verify
 npm run test:coverage
 ```
 
-El backend no requiere build: Node ejecuta directamente el código. La suite incluye integración real con SQLite en archivos temporales y se ejecuta
-siempre. Seguir [la guía SQLite](docs/SQLite.md); no usar la base de desarrollo
-para pruebas.
+El backend no requiere build: Node ejecuta directamente el código. La integración PostgreSQL requiere DATABASE_URL_TEST con base terminada en _test;
+CI la proporciona. Cada suite usa su propio esquema temporal. Seguir
+[la guía PostgreSQL](docs/PostgreSQL.md); no usar la base de desarrollo para pruebas.
 
 El PR debe describir problema, comportamiento final, pruebas, límites y el issue
 correspondiente. Para issues del proyecto original usar la referencia completa

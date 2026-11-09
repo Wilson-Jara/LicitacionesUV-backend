@@ -1,15 +1,9 @@
 import { config } from '../src/config/env.js'
 import { loadMockLicitaciones } from '../src/data/mockLicitaciones.js'
-import { withDatabase } from '../src/db/connection.js'
+import { runWithClient } from '../src/db/pool.js'
 import { seedLicitaciones } from '../src/db/seed.js'
-import { runMigrations } from '../src/db/migrator.js'
 
-try {
-  await withDatabase(config.databasePath, async (db) => {
-    await runMigrations(db)
-    console.log(`Seed cargado: ${await seedLicitaciones(db, loadMockLicitaciones())} licitaciones`)
-  })
-} catch (error) {
-  console.error(error.message)
-  process.exitCode = 1
-}
+await runWithClient(config.databaseUrl, async (client) => {
+  const total = await seedLicitaciones(client, loadMockLicitaciones())
+  console.log(`Seed cargado: ${total} licitaciones`)
+})

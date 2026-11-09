@@ -14,7 +14,7 @@ Closes #
 
 - [ ] `npm run verify` (lint + format:check + test)
 - [ ] `npm run test:coverage`
-- [ ] Integración SQLite completa ejecutada
+- [ ] Integración PostgreSQL completa ejecutada con `DATABASE_URL_TEST`
 - [ ] Prueba manual del flujo principal
 - [ ] Casos de error revisados
 

@@ -5,28 +5,34 @@ flowchart LR
   HTTP[Cliente HTTP] --> APP[src/app.js: CORS, JSON y errores]
   APP --> ROUTER[src/lib/router.js]
   ROUTER --> ROUTES[Salud y licitaciones]
-  ROUTES --> REPO[Repositorio SQLite]
-  REPO --> DB[node:sqlite: archivo local]
+  ROUTES --> REPO[Repositorio inyectado]
+  REPO --> PG[(PostgreSQL 16 con pg)]
+  REPO --> MOCK[Catálogo propio en memoria sin DATABASE_URL]
 ```
 
-`src/server.js` abre SQLite, aplica la línea de migraciones activa y compone la API
-con `createSqliteLicitacionesRepository`. Cierra la conexión al detener el servidor.
-`createApp` admite inyectar un repositorio; su opción en memoria se utiliza para
-pruebas aisladas del enrutamiento, no como selección de motor en producción.
+`src/server.js` selecciona PostgreSQL cuando hay `DATABASE_URL`; sin ella deja
+que `createApp` use el catálogo local. El pool se cierra al detener el servidor.
+El arranque no ejecuta migraciones ni seed. Las rutas dependen de una interfaz
+asíncrona `list` y `findById`, no del motor concreto.
 
-`src/db/connection.js` administra el archivo, claves foráneas, WAL, espera de bloqueos
-y la función determinista `lower_unicode`. Las consultas enlazan valores con `?`.
-`instr` realiza búsqueda literal por título y evita interpretar comodines. Las
-fechas se almacenan como texto ISO y se devuelven sin conversión de zona horaria.
+`src/db/pool.js` concentra la carga del driver y la conexión. Las consultas SQL
+usan parámetros `$1`, `$2`, etc. La búsqueda `ILIKE` escapa comodines y solo consulta
+el título. La fecha se convierte en SQL a `YYYY-MM-DD`, evitando desplazamientos
+por zona horaria. El monto BIGINT pasa a número en el contrato HTTP.
 
-Los endpoints mantienen `/api/health`, `/api/licitaciones` y `/api/licitaciones/:id`.
-Los errores de entrada devuelven 400, 404 o 413; los fallos internos responden 500
-con mensaje genérico. El contrato público conserva los nueve campos documentados.
+Se mantienen `/api/health`, `/api/licitaciones` y `/api/licitaciones/:id`, CORS y
+los errores JSON. Los fallos internos responden 500 genérico; no se exponen detalles
+al cliente. El contrato público conserva nueve campos.
 
-Las ocho entidades están en `migrations/sqlite/`. El migrador aplica cada archivo
-y su registro en una transacción; el seed es idempotente por identificador. La
-línea histórica `migrations/legacy-postgresql/` se conserva sin ejecutarse.
+La línea activa `migrations/postgresql/` crea las ocho entidades y regiones.
+Cada archivo y su registro comparten una transacción. El seed usa un catálogo
+propio y hace upsert por identificador. Las líneas SQLite y PostgreSQL histórica
+se conservan archivadas, sin ejecutarse ni convertir datos automáticamente.
 
-El backend requiere Node >= 22.22.0. CI, pruebas e integración usan SQLite sin
-servicios externos. El cliente React vive en otro repositorio y conserva su mock.
-Autenticación, favoritos y aprobaciones no tienen endpoints implementados todavía.
+PostgreSQL fue elegido para la operación compartida y la futura importación de
+Mercado Público. Esta elección no implementa el consumo de esa API ni requiere
+cambiar ahora el contrato del frontend. El cliente React conserva su mock local.
+
+CI instala PostgreSQL 16 directamente en Ubuntu 24.04 y usa una base de pruebas propia. Las pruebas crean esquemas aislados en una base
+cuyo nombre termina en `_test`. Autenticación, favoritos y aprobaciones conservan
+sus tablas, pero todavía no tienen endpoints de escritura ni sesiones.

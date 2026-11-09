@@ -1,31 +1,49 @@
-/** Carga el catálogo de ejemplo con upsert; cualquier fallo revierte toda la carga. */
-export async function seedLicitaciones(db, licitaciones) {
-  const insert = db.prepare(`INSERT INTO licitaciones
-    (id, titulo, institucion, monto, moneda, fecha_cierre, tipo, region_id, url_fuente)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT (id) DO UPDATE SET
-      titulo = excluded.titulo, institucion = excluded.institucion,
-      monto = excluded.monto, moneda = excluded.moneda,
-      fecha_cierre = excluded.fecha_cierre, tipo = excluded.tipo,
-      region_id = excluded.region_id, url_fuente = excluded.url_fuente`)
-  db.exec('BEGIN IMMEDIATE')
+/**
+ * Inserta o actualiza en la tabla `licitaciones` las licitaciones recibidas
+ * (normalmente el catálogo propio del backend, contrato REF-10).
+ *
+ * Es idempotente: una licitación con un `id` existente se actualiza en vez de
+ * duplicarse (`ON CONFLICT ... DO UPDATE`). Todo corre en una sola transacción:
+ * si una inserción falla, no queda ninguna aplicada.
+ *
+ * @param {{query: Function}} client - Cliente de PostgreSQL (o un doble en las pruebas).
+ * @param {Array<object>} licitaciones - Licitaciones con el contrato del mock.
+ * @returns {Promise<number>} Cantidad de licitaciones procesadas.
+ * @throws {Error} Si una inserción falla; la causa queda en `cause`.
+ */
+export async function seedLicitaciones(client, licitaciones) {
+  await client.query('BEGIN')
   try {
-    for (const l of licitaciones) {
-      insert.run(
-        l.id,
-        l.title,
-        l.institution,
-        l.amount,
-        l.currency,
-        l.closingDate,
-        l.type,
-        l.region,
-        l.sourceUrl,
+    for (const licitacion of licitaciones) {
+      await client.query(
+        `INSERT INTO licitaciones
+          (id, titulo, institucion, monto, moneda, fecha_cierre, tipo, region_id, url_fuente)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (id) DO UPDATE SET
+          titulo = EXCLUDED.titulo,
+          institucion = EXCLUDED.institucion,
+          monto = EXCLUDED.monto,
+          moneda = EXCLUDED.moneda,
+          fecha_cierre = EXCLUDED.fecha_cierre,
+          tipo = EXCLUDED.tipo,
+          region_id = EXCLUDED.region_id,
+          url_fuente = EXCLUDED.url_fuente`,
+        [
+          licitacion.id,
+          licitacion.title,
+          licitacion.institution,
+          licitacion.amount,
+          licitacion.currency,
+          licitacion.closingDate,
+          licitacion.type,
+          licitacion.region,
+          licitacion.sourceUrl,
+        ],
       )
     }
-    db.exec('COMMIT')
+    await client.query('COMMIT')
   } catch (error) {
-    db.exec('ROLLBACK')
+    await client.query('ROLLBACK')
     throw new Error(`Falló la carga del seed de licitaciones: ${error.message}`, { cause: error })
   }
   return licitaciones.length

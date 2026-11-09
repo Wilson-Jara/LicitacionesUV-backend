@@ -1,17 +1,16 @@
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { config } from '../src/config/env.js'
 import { runMigrations } from '../src/db/migrator.js'
-import { withDatabase } from '../src/db/connection.js'
+import { runWithClient } from '../src/db/pool.js'
 
-try {
-  await withDatabase(config.databasePath, async (db) => {
-    const aplicadas = await runMigrations(db)
-    console.log(
-      aplicadas.length
-        ? `Migraciones aplicadas: ${aplicadas.join(', ')}`
-        : 'No hay migraciones pendientes',
-    )
-  })
-} catch (error) {
-  console.error(error.message)
-  process.exitCode = 1
-}
+const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), '../migrations/postgresql')
+
+await runWithClient(config.databaseUrl, async (client) => {
+  const aplicadas = await runMigrations(client, migrationsDir)
+  console.log(
+    aplicadas.length
+      ? `Migraciones aplicadas: ${aplicadas.join(', ')}`
+      : 'No hay migraciones pendientes',
+  )
+})

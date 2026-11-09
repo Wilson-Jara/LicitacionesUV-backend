@@ -14,13 +14,12 @@ API REST del repositorio independiente `LicitacionesUV-backend`, implementada co
 ```bash
 cd LicitacionesUV-backend
 npm ci
-npm run db:setup
 npm start
 ```
 
-La API queda en `http://localhost:3000` y usa SQLite en `data/licitaciones.sqlite`.
-`db:setup` carga el catálogo propio `src/data/licitaciones.mock.json`. La ubicación
-se configura mediante `DATABASE_PATH`; no se requiere un servidor de base de datos.
+La API queda en `http://localhost:3000`. Sin `DATABASE_URL` usa el catálogo propio
+en memoria. Para PostgreSQL, configurar la conexión y ejecutar `npm run db:setup`
+antes del servidor. Ver [guía PostgreSQL](../PostgreSQL.md).
 
 ## Cómo ejecutar las pruebas con Thunder Client
 

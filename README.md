@@ -1,51 +1,60 @@
 # LicitacionesUV — Backend
 
-API REST independiente con `node:http` y SQLite integrado mediante `node:sqlite`.
-Requiere Node.js >= 22.22.0 y npm >= 10. No tiene dependencias de producción externas.
+API REST independiente con `node:http` y PostgreSQL 16 mediante `pg`.
+Requiere Node.js >= 22.22.0 y npm >= 10. El frontend vive en otro repositorio;
+este proyecto contiene su propio catálogo de seis licitaciones ficticias.
 
-## Instalación y ejecución
+## Instalación y ejecución rápida
 
-Desde esta raíz:
+Desde la raíz de este repositorio:
 
 ```bash
 npm ci
-npm run db:setup
-npm run dev
+npm start
 ```
 
-`db:setup` aplica migraciones y carga el catálogo de ejemplo. La API escucha en
-`http://localhost:3000`; `npm start` la inicia sin recarga automática.
+Sin `DATABASE_URL`, el servidor usa `src/data/licitaciones.mock.json` en memoria.
+Esto conserva el comportamiento del backend original y permite probar la API sin
+PostgreSQL. La API escucha por defecto en `http://localhost:3000`;
+`npm run dev` agrega recarga automática.
 
-SQLite guarda la información en `data/licitaciones.sqlite`. La carpeta se crea si
-falta. Opcionalmente copia `.env.example` como `.env` y configura `DATABASE_PATH`,
-`PORT` y `CORS_ORIGIN`. Las rutas relativas de la base parten de esta raíz, incluso
-si el comando se ejecuta desde otra carpeta.
+## PostgreSQL y persistencia
+
+1. Instalar e iniciar PostgreSQL 16 directamente en el equipo, usando el
+   [instalador o paquete oficial](https://www.postgresql.org/download/).
+2. Crear un usuario local y dos bases separadas, `licitaciones_db` para desarrollo
+   y `licitaciones_test` para pruebas, con UTF-8 y un locale que convierta
+   mayúsculas Unicode. Una persona configura `DATABASE_URL` y, opcionalmente,
+   `DATABASE_URL_TEST` en su `.env` local usando `.env.example` como referencia.
+   El archivo real no se versiona. Ver [configuración detallada](docs/PostgreSQL.md).
+3. Aplicar el esquema y cargar exclusivamente datos de ejemplo:
+
+   ```bash
+   npm run db:setup
+   npm start
+   ```
+
+`db:setup` equivale a `db:migrate` seguido de `db:seed`. Ambos comandos necesitan
+`DATABASE_URL`; sin ella fallan con un mensaje y código de error. El servidor no
+aplica migraciones ni ejecuta el seed al arrancar. Una base sin registros devuelve
+un listado vacío. El seed hace upsert por identificador y actualiza registros:
+no ejecutarlo sobre datos que deban conservarse sin revisar su efecto.
+
+La línea activa es `migrations/postgresql/`. Cada migración y su registro se
+aplican en una transacción. Las migraciones previas se conservan sin cambios en
+`migrations/legacy-postgresql/` y `migrations/sqlite/` como archivo histórico; el
+migrador no recorre esas carpetas. No hay conversión automática de archivos SQLite
+ni se abre, borra o importa una base anterior. Ver [guía PostgreSQL](docs/PostgreSQL.md).
 
 ## Endpoints
 
 - `GET /api/health`: estado del servicio.
-- `GET /api/licitaciones`: filtros `keyword` (solo título), `region` y `tipo`.
-- `GET /api/licitaciones/:id`: detalle o 404.
+- `GET /api/licitaciones`: filtros combinados `keyword` (solo título), `region` y `tipo`.
+- `GET /api/licitaciones/:id`: detalle por identificador exacto o 404.
 
-Se conserva el contrato de nueve campos. La búsqueda ignora mayúsculas, conserva
-las tildes y trata `%`, `_` y barras como texto literal. Ver [API](docs/api/README.md).
-
-## Datos y migraciones
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
-
-La línea activa está en `migrations/sqlite/`. Cada archivo y su registro en
-`schema_migrations` comparten una transacción. El seed hace upsert por id: repetirlo
-no duplica filas, pero sí actualiza sus datos con el catálogo de ejemplo.
-
-El servidor aplica migraciones pendientes al arrancar y no ejecuta el seed. Una
-base recién creada queda vacía hasta cargar datos. Reiniciar conserva los datos.
-Las migraciones anteriores se preservan como referencia histórica en
-`migrations/legacy-postgresql/`; no se ejecutan. Este cambio crea una base SQLite
-nueva: no importa datos desde instalaciones previas de otro motor.
+Se conserva el contrato de nueve campos y la búsqueda literal sin distinguir
+mayúsculas; `%`, `_` y barras se buscan como texto. Los errores internos responden
+un mensaje genérico. Ver [contratos y colecciones](docs/api/README.md).
 
 ## Pruebas y CI
 
@@ -54,24 +63,27 @@ npm run verify
 npm run test:coverage
 ```
 
-Las pruebas unitarias, HTTP e integración SQLite se ejecutan siempre. Crean bases
-propias en memoria o archivos temporales y las retiran al terminar; no usan la
-base de desarrollo ni necesitan variables de conexión. El CI solo instala Node y
-las herramientas de desarrollo. No hay build: Node ejecuta el JavaScript directamente.
+`verify` ejecuta lint, formato y pruebas. No hay build: Node ejecuta JavaScript
+sin compilar. Las pruebas unitarias y HTTP usan el catálogo propio. Las de
+integración y comandos PostgreSQL requieren `DATABASE_URL_TEST`, cuyo nombre de
+base debe terminar en `_test`; sin esa configuración se informa su omisión.
+Cada suite usa un esquema temporal propio y elimina solo ese esquema, nunca
+`public`. La base de desarrollo no debe utilizarse para pruebas.
 
-## Operación
+El workflow instala PostgreSQL 16 directamente en Ubuntu 24.04 y crea una base de
+pruebas propia. Usa socket Unix y autenticación local, sin contraseñas publicadas.
+Ejecuta toda la suite y cobertura. Su definición local no acredita que
+el CI remoto haya pasado. Ver [cobertura](docs/cobertura.md).
 
-SQLite activa claves foráneas, modo WAL y espera de bloqueos de hasta cinco segundos.
-Usa disco local persistente para el archivo y sus auxiliares; no compartas el archivo
-directamente entre servidores. Realiza copias consistentes con el backend detenido
-o mediante una herramienta de backup de SQLite. Los archivos de base de datos no
-se publican en Git. Ver [guía SQLite](docs/SQLite.md).
+## Frontend e integración futura
 
-## Frontend y documentación
+Ejecutar `npm ci` y `npm run dev` desde la raíz del frontend, en otra terminal.
+Vite usa por defecto `http://localhost:5173`, permitido por `CORS_ORIGIN` en la API.
+El frontend sigue usando su mock; `VITE_API_BASE_URL` todavía no se consume.
 
-El frontend `LicitacionesUV` sigue usando su mock local; la integración HTTP no está
-implementada. Para desarrollar, inicia Vite en otra terminal y configura CORS_ORIGIN
-con su origen (por defecto `http://localhost:5173`).
+El consumo de la API de Mercado Público y la conexión HTTP del frontend son
+entregas posteriores. No hay importador, ticket configurado, sesiones ni endpoints
+de escritura de favoritos o aprobaciones implementados.
 
 Ver [índice de documentación](docs/README.md), [arquitectura](docs/Arquitectura.md),
 [modelo de datos](docs/ModeloDatos.md), [CONTRIBUTING.md](CONTRIBUTING.md),

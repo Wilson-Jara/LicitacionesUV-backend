@@ -50,6 +50,10 @@ requieren DATABASE_URL_TEST con nombre de base terminado en _test; sin ella se
 omiten explícitamente. Cada suite crea y elimina un esquema único, nunca public.
 Las pruebas unitarias y HTTP no necesitan PostgreSQL. Ver `docs/cobertura.md`.
 
+La prueba del servidor real valida la terminación por SIGTERM en Windows
+(código null y señal SIGTERM). En Linux comprueba el cierre ordenado con código 0
+y sin señal de terminación; Windows no acredita ese cierre ordenado.
+
 ## Integración y documentación
 
 El frontend Vite vive por separado y aún usa su mock, sin consumir VITE_API_BASE_URL.

@@ -54,6 +54,13 @@ aplicados en `schema_migrations`. Cada archivo y su registro comparten transacci
 si falla, revierte esa migración y no aplica las siguientes. No editar migraciones
 ya aplicadas: añadir otra numerada.
 
+Antes de crear `schema_migrations` o consultar pendientes, el migrador obtiene un
+advisory lock de sesión cuya clave incluye la base activa. Si dos procesos migran
+la misma base, el segundo espera; después vuelve a consultar el registro y omite
+lo que aplicó el primero. El bloqueo cubre la ejecución completa, se libera en un
+`finally` tanto al terminar como al fallar y PostgreSQL también lo libera si se
+cierra abruptamente la sesión. Las transacciones siguen siendo una por archivo.
+
 El seed carga los seis ejemplos de `src/data/licitaciones.mock.json` en una
 transacción. Repetirlo no duplica identificadores, pero actualiza sus datos.
 El arranque del servidor no ejecuta estos comandos automáticamente.
@@ -64,6 +71,9 @@ Una persona configura `DATABASE_URL_TEST` con una base desechable cuyo nombre
 termine en `_test`, separada de desarrollo. Las suites de integración y comandos
 crean esquemas `uv_test_...` únicos y eliminan solo sus propios esquemas. No borran
 `public`, no comparten datos entre suites y no migran la base de desarrollo.
+Las pruebas de concurrencia abren dos sesiones contra un mismo esquema aislado;
+también inyectan una migración SQL inválida y comprueban el reintento desde otra
+sesión tras corregirla.
 
 ```bash
 npm run verify

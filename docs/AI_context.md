@@ -25,6 +25,10 @@ El monto se convierte de BIGINT a número y la fecha se entrega como YYYY-MM-DD.
 El migrador registra cada archivo en la misma transacción que su SQL; el seed hace
 upsert en una transacción. `migrations/sqlite/` y `migrations/legacy-postgresql/`
 se conservan sin cambios como archivo histórico y no se ejecutan.
+El control `BEGIN`/`COMMIT`/`ROLLBACK` está centralizado en `src/db/transaction.js`.
+El migrador serializa cada corrida por base mediante un advisory lock de sesión,
+adquirido antes de inicializar/consultar `schema_migrations` y liberado al finalizar
+o fallar; dos sesiones concurrentes vuelven a evaluar pendientes bajo el bloqueo.
 
 ## Stack, comandos y configuración
 

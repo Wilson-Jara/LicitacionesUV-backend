@@ -21,6 +21,7 @@ function createFakeClient({ aplicadas = [], fallarCon } = {}) {
       if (sql.startsWith('SELECT nombre FROM schema_migrations')) {
         return { rows: aplicadas.map((nombre) => ({ nombre })) }
       }
+      if (sql.includes('pg_advisory_unlock')) return { rows: [{ released: true }] }
       return { rows: [] }
     },
   }
@@ -77,7 +78,9 @@ describe('runMigrations', () => {
     const client = createFakeClient()
     const aplicadas = await runMigrations(client, dir)
     assert.deepEqual(aplicadas, ['001_primera.sql', '002_segunda.sql'])
-    const secuencia = client.queries.map((q) => q.sql).slice(2)
+    assert.match(client.queries[0].sql, /pg_advisory_lock/)
+    assert.match(client.queries.at(-1).sql, /pg_advisory_unlock/)
+    const secuencia = client.queries.map((q) => q.sql).slice(3, -1)
     assert.deepEqual(secuencia, [
       'BEGIN',
       'SELECT 1;',
@@ -94,12 +97,14 @@ describe('runMigrations', () => {
     const client = createFakeClient({ aplicadas: ['001_primera.sql', '002_segunda.sql'] })
     assert.deepEqual(await runMigrations(client, dir), [])
     assert.ok(!client.queries.some((q) => q.sql === 'BEGIN'))
+    assert.match(client.queries.at(-1).sql, /pg_advisory_unlock/)
   })
 
   it('revierte y explica qué migración falló', async () => {
     const client = createFakeClient({ fallarCon: 'SELECT 2' })
     await assert.rejects(runMigrations(client, dir), /Falló la migración 002_segunda\.sql/)
-    assert.equal(client.queries.at(-1).sql, 'ROLLBACK')
+    assert.equal(client.queries.at(-2).sql, 'ROLLBACK')
+    assert.match(client.queries.at(-1).sql, /pg_advisory_unlock/)
   })
 })
 

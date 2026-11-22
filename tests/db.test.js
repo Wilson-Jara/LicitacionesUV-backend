@@ -11,12 +11,13 @@ import { loadMockLicitaciones } from '../src/data/mockLicitaciones.js'
 const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), '../migrations/postgresql')
 
 // Cliente falso: registra las consultas y simula schema_migrations
-function createFakeClient({ aplicadas = [], fallarCon } = {}) {
+function createFakeClient({ aplicadas = [], fallarCon, fallarRollback = false } = {}) {
   const queries = []
   return {
     queries,
     async query(sql, params) {
       queries.push({ sql: sql.trim(), params })
+      if (fallarRollback && sql === 'ROLLBACK') throw new Error('conexión perdida durante rollback')
       if (fallarCon && sql.includes(fallarCon)) throw new Error('error de sintaxis')
       if (sql.startsWith('SELECT nombre FROM schema_migrations')) {
         return { rows: aplicadas.map((nombre) => ({ nombre })) }
@@ -138,5 +139,20 @@ describe('seedLicitaciones', () => {
       /Falló la carga del seed de licitaciones/,
     )
     assert.equal(client.queries.at(-1).sql, 'ROLLBACK')
+  })
+
+  it('conserva el error original si también falla el rollback', async () => {
+    const client = createFakeClient({
+      fallarCon: 'INSERT INTO licitaciones',
+      fallarRollback: true,
+    })
+    await assert.rejects(seedLicitaciones(client, loadMockLicitaciones()), (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.match(error.message, /Falló la carga del seed de licitaciones/)
+      assert.match(error.message, /además falló el rollback/)
+      assert.equal(error.errors[0].message, 'error de sintaxis')
+      assert.equal(error.errors[1].message, 'conexión perdida durante rollback')
+      return true
+    })
   })
 })

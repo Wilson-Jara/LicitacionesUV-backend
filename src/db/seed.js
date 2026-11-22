@@ -1,3 +1,5 @@
+import { runInTransaction } from './transaction.js'
+
 /**
  * Inserta o actualiza en la tabla `licitaciones` las licitaciones recibidas
  * (normalmente el catálogo propio del backend, contrato REF-10).
@@ -47,4 +49,3 @@ export async function seedLicitaciones(client, licitaciones) {
   )
   return licitaciones.length
 }
-import { runInTransaction } from './transaction.js'

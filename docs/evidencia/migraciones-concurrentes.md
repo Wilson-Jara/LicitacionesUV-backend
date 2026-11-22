@@ -29,6 +29,8 @@
   la base y `licitacionesuv:schema_migrations`.
 - Granularidad: una ejecución completa de `runMigrations`; la segunda sesión
   espera y vuelve a consultar `schema_migrations` cuando obtiene el bloqueo.
+- Alcance: la clave es por base y serializa también esquemas distintos de esa
+  base de forma intencional.
 - Liberación: se intenta siempre después del éxito o fallo. Si el proceso pierde
   la conexión, PostgreSQL libera automáticamente los advisory locks de sesión.
 - Atomicidad: cada archivo y su `INSERT` de registro conservan una transacción
@@ -48,3 +50,10 @@
 Estas pruebas se omiten explícitamente sin `DATABASE_URL_TEST`. El resultado con
 PostgreSQL 16 debe registrarse desde CI o desde una base local aislada, nunca desde
 la base de desarrollo.
+
+## Resultado remoto
+
+- GitHub Actions `verify` con PostgreSQL 16: **correcto**.
+- Ejecución: https://github.com/Wilson-Jara/LicitacionesUV-backend/actions/runs/45064741286
+- La ejecución usa `licitaciones_test`, crea esquemas temporales y ejecuta
+  `npm run verify` y `npm run test:coverage` sin omitir la integración.

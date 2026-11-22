@@ -60,6 +60,8 @@ la misma base, el segundo espera; después vuelve a consultar el registro y omit
 lo que aplicó el primero. El bloqueo cubre la ejecución completa, se libera en un
 `finally` tanto al terminar como al fallar y PostgreSQL también lo libera si se
 cierra abruptamente la sesión. Las transacciones siguen siendo una por archivo.
+La coordinación es intencionalmente por base, no por esquema: dos esquemas de la
+misma base también se serializan para conservar una única política de migración.
 
 El seed carga los seis ejemplos de `src/data/licitaciones.mock.json` en una
 transacción. Repetirlo no duplica identificadores, pero actualiza sus datos.

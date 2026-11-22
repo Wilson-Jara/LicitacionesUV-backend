@@ -26,6 +26,8 @@ El migrador registra cada archivo en la misma transacción que su SQL; el seed h
 upsert en una transacción. `migrations/sqlite/` y `migrations/legacy-postgresql/`
 se conservan sin cambios como archivo histórico y no se ejecutan.
 El control `BEGIN`/`COMMIT`/`ROLLBACK` está centralizado en `src/db/transaction.js`.
+Si la operación y su rollback fallan, se conservan ambos errores en un
+`AggregateError` para no ocultar la causa original.
 El migrador serializa cada corrida por base mediante un advisory lock de sesión,
 adquirido antes de inicializar/consultar `schema_migrations` y liberado al finalizar
 o fallar; dos sesiones concurrentes vuelven a evaluar pendientes bajo el bloqueo.

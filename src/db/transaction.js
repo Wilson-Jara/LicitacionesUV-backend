@@ -14,12 +14,25 @@
  */
 export async function runInTransaction(client, operation, errorPrefix) {
   await client.query('BEGIN')
+  let result
+  let operationError
   try {
-    const result = await operation()
+    result = await operation()
     await client.query('COMMIT')
-    return result
   } catch (error) {
-    await client.query('ROLLBACK')
-    throw new Error(`${errorPrefix}: ${error.message}`, { cause: error })
+    operationError = error
   }
+
+  if (!operationError) return result
+
+  try {
+    await client.query('ROLLBACK')
+  } catch (rollbackError) {
+    throw new AggregateError(
+      [operationError, rollbackError],
+      `${errorPrefix}: ${operationError.message}; además falló el rollback`,
+      { cause: rollbackError },
+    )
+  }
+  throw new Error(`${errorPrefix}: ${operationError.message}`, { cause: operationError })
 }

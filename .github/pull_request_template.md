@@ -21,7 +21,7 @@ Closes #
 ## Checklist
 
 - [ ] El PR apunta a `develop` (no a `main`)
-- [ ] Al menos un revisor distinto del autor (revisión acordada por el equipo)
+- [ ] Solicité la revisión de QA (@StelleC) y de otro integrante distinto del autor.
 - [ ] Sin credenciales, `.env`, `node_modules` ni artefactos generados
 - [ ] Documentación actualizada si corresponde
 

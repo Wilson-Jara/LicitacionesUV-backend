@@ -90,6 +90,10 @@ sesiones ni endpoints de escritura para usuarios, favoritos o aprobaciones.
 
 `docs/README.md`, `PostgreSQL.md`, `ModeloDatos.md`, `api/` y `CONTRIBUTING.md`
 describen operación, contratos y reglas. `SQLite.md` se identifica como guía histórica.
+`.github/CODEOWNERS` asigna todos los archivos a QA (@StelleC). La regla del equipo
+para `main` y `develop` exige su aprobación y la de otro integrante distinto del
+autor. GitHub aplica el requisito cuando el archivo está en la rama base y el
+ruleset exige dos aprobaciones y la revisión de propietarios de código.
 Los requisitos compartidos describen el producto completo, no funciones ya
 implementadas en esta API. Las validaciones locales no acreditan CI remoto.
 

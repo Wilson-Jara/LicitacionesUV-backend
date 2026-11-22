@@ -93,6 +93,8 @@ fusiona cambios; el equipo conserva la revisión y aprobación humanas.
 
 ## Operación
 
+- **Contribución y revisión.** Los PR hacia `main` y `develop` requieren la aprobación de QA (@StelleC) y de otro integrante distinto del autor. Ver el procedimiento y los ajustes de GitHub en [CONTRIBUTING.md](CONTRIBUTING.md) y [docs/roles-equipo.md](docs/roles-equipo.md).
+
 ## Frontend e integración futura
 
 Ejecutar `npm ci` y `npm run dev` desde la raíz del frontend, en otra terminal.

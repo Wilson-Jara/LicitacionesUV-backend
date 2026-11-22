@@ -93,6 +93,10 @@ fusiona cambios; el equipo conserva la revisión y aprobación humanas.
 
 ## Operación
 
+- **Configuración local:** copiar las claves documentadas desde [`.env.example`](.env.example) a un `.env` local no versionado y seguir [docs/PostgreSQL.md](docs/PostgreSQL.md) para migraciones, seed y base de pruebas (`_test`). La [guía de SQLite](docs/SQLite.md) se conserva únicamente como antecedente histórico.
+- **Contribución y revisión:** seguir [CONTRIBUTING.md](CONTRIBUTING.md) y [docs/roles-equipo.md](docs/roles-equipo.md). [`.github/CODEOWNERS`](.github/CODEOWNERS) propone revisores del equipo al abrir PR hacia la rama base, pero exigir aprobaciones, checks obligatorios y secretos de Actions (`DEEPSEEK_API_KEY`) depende de la configuración efectiva del repositorio y sus ramas en GitHub, que debe comprobarse manualmente.
+- **Gobernanza y pruebas:** consultar [docs/cobertura.md](docs/cobertura.md), [docs/api/README.md](docs/api/README.md) y [AGENTS.md](AGENTS.md).
+
 ## Frontend e integración futura
 
 Ejecutar `npm ci` y `npm run dev` desde la raíz del frontend, en otra terminal.

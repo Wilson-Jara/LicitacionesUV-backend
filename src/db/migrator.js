@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { runInTransaction } from './transaction.js'
 
 const MIGRATION_FILE = /^\d{3}_[a-z0-9_]+\.sql$/
 
@@ -42,15 +43,14 @@ export async function runMigrations(client, dir) {
 
   for (const file of pendientes) {
     const sql = await readFile(join(dir, file), 'utf8')
-    await client.query('BEGIN')
-    try {
-      await client.query(sql)
-      await client.query('INSERT INTO schema_migrations (nombre) VALUES ($1)', [file])
-      await client.query('COMMIT')
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw new Error(`Falló la migración ${file}: ${error.message}`, { cause: error })
-    }
+    await runInTransaction(
+      client,
+      async () => {
+        await client.query(sql)
+        await client.query('INSERT INTO schema_migrations (nombre) VALUES ($1)', [file])
+      },
+      `Falló la migración ${file}`,
+    )
   }
   return pendientes
 }

@@ -1,7 +1,54 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { runInTransaction } from './transaction.js'
 
 const MIGRATION_FILE = /^\d{3}_[a-z0-9_]+\.sql$/
+const MIGRATION_LOCK_NAME = 'licitacionesuv:schema_migrations'
+
+const LOCK_SQL = `
+  SELECT pg_advisory_lock(
+    hashtextextended(current_database() || ':' || $1, 0)
+  )`
+const UNLOCK_SQL = `
+  SELECT pg_advisory_unlock(
+    hashtextextended(current_database() || ':' || $1, 0)
+  ) AS released`
+
+async function runWithMigrationLock(client, operation) {
+  await client.query(LOCK_SQL, [MIGRATION_LOCK_NAME])
+
+  let result
+  let operationError
+  try {
+    result = await operation()
+  } catch (error) {
+    operationError = error
+  }
+
+  let releaseError
+  try {
+    const { rows } = await client.query(UNLOCK_SQL, [MIGRATION_LOCK_NAME])
+    if (rows[0]?.released !== true) {
+      throw new Error('PostgreSQL informó que el advisory lock no pertenecía a esta sesión')
+    }
+  } catch (error) {
+    releaseError = error
+  }
+
+  if (operationError && releaseError) {
+    throw new AggregateError(
+      [operationError, releaseError],
+      `${operationError.message}; además falló la liberación del bloqueo de migraciones`,
+    )
+  }
+  if (operationError) throw operationError
+  if (releaseError) {
+    throw new Error(`No se pudo liberar el bloqueo de migraciones: ${releaseError.message}`, {
+      cause: releaseError,
+    })
+  }
+  return result
+}
 
 /**
  * Lista las migraciones de una carpeta en el orden en que deben aplicarse.
@@ -30,27 +77,28 @@ export async function listMigrationFiles(dir) {
  * @throws {Error} Si una migración falla; el mensaje nombra el archivo y la causa queda en `cause`.
  */
 export async function runMigrations(client, dir) {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      nombre TEXT PRIMARY KEY,
-      aplicada_en TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `)
-  const { rows } = await client.query('SELECT nombre FROM schema_migrations')
-  const aplicadas = new Set(rows.map((row) => row.nombre))
-  const pendientes = (await listMigrationFiles(dir)).filter((file) => !aplicadas.has(file))
+  return runWithMigrationLock(client, async () => {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        nombre TEXT PRIMARY KEY,
+        aplicada_en TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `)
+    const { rows } = await client.query('SELECT nombre FROM schema_migrations')
+    const aplicadas = new Set(rows.map((row) => row.nombre))
+    const pendientes = (await listMigrationFiles(dir)).filter((file) => !aplicadas.has(file))
 
-  for (const file of pendientes) {
-    const sql = await readFile(join(dir, file), 'utf8')
-    await client.query('BEGIN')
-    try {
-      await client.query(sql)
-      await client.query('INSERT INTO schema_migrations (nombre) VALUES ($1)', [file])
-      await client.query('COMMIT')
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw new Error(`Falló la migración ${file}: ${error.message}`, { cause: error })
+    for (const file of pendientes) {
+      const sql = await readFile(join(dir, file), 'utf8')
+      await runInTransaction(
+        client,
+        async () => {
+          await client.query(sql)
+          await client.query('INSERT INTO schema_migrations (nombre) VALUES ($1)', [file])
+        },
+        `Falló la migración ${file}`,
+      )
     }
-  }
-  return pendientes
+    return pendientes
+  })
 }

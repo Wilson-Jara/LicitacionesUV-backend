@@ -85,12 +85,57 @@ describe('GET /api/licitaciones', () => {
     assert.deepEqual(await response.json(), await esperado.json())
   })
 
-  it('responde 200 con una lista vacía cuando los filtros no tienen resultados', async () => {
-    for (const query of ['keyword=zzz-sin-coincidencias', 'region=no-existe', 'tipo=no-existe']) {
-      const response = await fetch(`${baseUrl}/api/licitaciones?${query}`)
-      assert.equal(response.status, 200, query)
-      assert.deepEqual(await response.json(), [], query)
-    }
+  it('responde 200 con una lista vacía cuando la palabra clave no tiene resultados', async () => {
+    const response = await fetch(`${baseUrl}/api/licitaciones?keyword=zzz-sin-coincidencias`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), [])
+  })
+})
+
+// #5: misma regla que el explorador del frontend (sanitizeFilterParams)
+describe('GET /api/licitaciones · filtros repetidos, inválidos y vacíos (#5)', () => {
+  async function listar(query) {
+    const response = await fetch(`${baseUrl}/api/licitaciones?${query}`)
+    assert.equal(response.status, 200, query)
+    return response.json()
+  }
+
+  it('ignora una región o un tipo inválido, igual que el explorador', async () => {
+    const todas = await listar('')
+    assert.deepEqual(await listar('region=atacama'), todas)
+    assert.deepEqual(await listar('tipo=no-existe'), todas)
+  })
+
+  it('con una región repetida usa el último valor válido', async () => {
+    const valparaiso = await listar('region=valparaiso')
+    assert.equal(valparaiso.length, 2)
+    assert.deepEqual(await listar('region=valparaiso&region=atacama'), valparaiso)
+    assert.deepEqual(await listar('region=atacama&region=valparaiso'), valparaiso)
+    assert.deepEqual(await listar('region=metropolitana&region=valparaiso'), valparaiso)
+  })
+
+  it('con un tipo repetido usa el último valor válido', async () => {
+    const publicas = await listar('tipo=publica')
+    assert.deepEqual(await listar('tipo=publica&tipo=xx'), publicas)
+    assert.deepEqual(await listar('tipo=privada&tipo=publica'), publicas)
+  })
+
+  it('acepta tildes y espacios en región y tipo', async () => {
+    assert.deepEqual(
+      await listar('region=%20Valpara%C3%ADso%20&tipo=P%C3%BAblica'),
+      await listar('region=valparaiso&tipo=publica'),
+    )
+  })
+
+  it('un parámetro vacío no restringe el resultado', async () => {
+    assert.equal((await listar('region=&tipo=&keyword=')).length, 6)
+  })
+
+  it('con una palabra clave repetida usa la última, recortada', async () => {
+    assert.deepEqual(
+      await listar('keyword=zzz&keyword=%20software%20'),
+      await listar('keyword=software'),
+    )
   })
 })
 

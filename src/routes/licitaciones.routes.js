@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { HttpError, sendJson } from '../lib/http.js'
+import { normalizarFiltrosListado } from '../lib/filtrosListado.js'
 
 /**
  * Registra las rutas de licitaciones:
  * - `GET /api/licitaciones`: listado con filtros opcionales `keyword`, `region` y
- *   `tipo` (HU #43). La palabra clave se recorta (`trim`), igual que en el buscador
- *   del frontend. Sin coincidencias responde 200 con `[]`.
+ *   `tipo` (HU #43). Los filtros se normalizan con la misma regla del explorador
+ *   (`normalizarFiltrosListado`, #5): palabra clave recortada, región y tipo sin tildes
+ *   ni mayúsculas, último valor válido si se repiten e inválidos ignorados.
+ *   Sin coincidencias responde 200 con `[]`.
  * - `GET /api/licitaciones/:id`: detalle de una licitación (HU #44); 404 si no existe.
  *
  * El repositorio se recibe por parámetro para poder usar PostgreSQL en
@@ -17,10 +20,8 @@ import { HttpError, sendJson } from '../lib/http.js'
  */
 export function registerLicitacionesRoutes(router, repository) {
   router.get('/api/licitaciones', async (req, res) => {
-    const { region, tipo } = req.query
-    // Igual que el buscador del frontend: se ignoran los espacios al inicio y al final
-    const keyword = (req.query.keyword || '').trim()
-    sendJson(res, 200, await repository.list({ keyword, region, tipo }))
+    const filtros = normalizarFiltrosListado(req.searchParams ?? new URLSearchParams())
+    sendJson(res, 200, await repository.list(filtros))
   })
 
   router.get('/api/licitaciones/:id', async (req, res) => {

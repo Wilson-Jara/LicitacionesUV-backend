@@ -36,6 +36,8 @@ describe('GET /api/licitaciones', () => {
       'closingDate',
       'type',
       'region',
+      'sector',
+      'etiquetas',
       'sourceUrl',
     ]) {
       assert.ok(campo in licitacion, `falta el campo ${campo}`)
@@ -85,12 +87,57 @@ describe('GET /api/licitaciones', () => {
     assert.deepEqual(await response.json(), await esperado.json())
   })
 
-  it('responde 200 con una lista vacía cuando los filtros no tienen resultados', async () => {
-    for (const query of ['keyword=zzz-sin-coincidencias', 'region=no-existe', 'tipo=no-existe']) {
-      const response = await fetch(`${baseUrl}/api/licitaciones?${query}`)
-      assert.equal(response.status, 200, query)
-      assert.deepEqual(await response.json(), [], query)
-    }
+  it('responde 200 con una lista vacía cuando la palabra clave no tiene resultados', async () => {
+    const response = await fetch(`${baseUrl}/api/licitaciones?keyword=zzz-sin-coincidencias`)
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), [])
+  })
+})
+
+// #5: misma regla que el explorador del frontend (sanitizeFilterParams)
+describe('GET /api/licitaciones · filtros repetidos, inválidos y vacíos (#5)', () => {
+  async function listar(query) {
+    const response = await fetch(`${baseUrl}/api/licitaciones?${query}`)
+    assert.equal(response.status, 200, query)
+    return response.json()
+  }
+
+  it('ignora una región o un tipo inválido, igual que el explorador', async () => {
+    const todas = await listar('')
+    assert.deepEqual(await listar('region=atacama'), todas)
+    assert.deepEqual(await listar('tipo=no-existe'), todas)
+  })
+
+  it('con una región repetida usa el último valor válido', async () => {
+    const valparaiso = await listar('region=valparaiso')
+    assert.equal(valparaiso.length, 2)
+    assert.deepEqual(await listar('region=valparaiso&region=atacama'), valparaiso)
+    assert.deepEqual(await listar('region=atacama&region=valparaiso'), valparaiso)
+    assert.deepEqual(await listar('region=metropolitana&region=valparaiso'), valparaiso)
+  })
+
+  it('con un tipo repetido usa el último valor válido', async () => {
+    const publicas = await listar('tipo=publica')
+    assert.deepEqual(await listar('tipo=publica&tipo=xx'), publicas)
+    assert.deepEqual(await listar('tipo=privada&tipo=publica'), publicas)
+  })
+
+  it('acepta tildes y espacios en región y tipo', async () => {
+    assert.deepEqual(
+      await listar('region=%20Valpara%C3%ADso%20&tipo=P%C3%BAblica'),
+      await listar('region=valparaiso&tipo=publica'),
+    )
+  })
+
+  it('un parámetro vacío no restringe el resultado', async () => {
+    assert.equal((await listar('region=&tipo=&keyword=')).length, 6)
+  })
+
+  it('con una palabra clave repetida usa la última, recortada', async () => {
+    assert.deepEqual(
+      await listar('keyword=zzz&keyword=%20software%20'),
+      await listar('keyword=software'),
+    )
   })
 })
 
@@ -139,5 +186,26 @@ describe('rutas no registradas', () => {
     assert.equal(response.status, 404)
     const body = await response.json()
     assert.equal(body.error, 'Ruta no encontrada')
+  })
+})
+
+describe('sector y etiquetas en el contrato (#94)', () => {
+  it('el listado y el detalle entregan sector y etiquetas con claves normalizadas', async () => {
+    const lista = await (await fetch(`${baseUrl}/api/licitaciones`)).json()
+    for (const licitacion of lista) {
+      assert.ok(
+        licitacion.sector === null ||
+          ['finanzas', 'infraestructura', 'tecnologia'].includes(licitacion.sector),
+        licitacion.id,
+      )
+      assert.ok(Array.isArray(licitacion.etiquetas), licitacion.id)
+      assert.ok(
+        licitacion.etiquetas.every((e) => e === e.toLowerCase().trim()),
+        licitacion.id,
+      )
+    }
+    const detalle = await (await fetch(`${baseUrl}/api/licitaciones/licitacion-001`)).json()
+    assert.equal(detalle.sector, 'infraestructura')
+    assert.deepEqual(detalle.etiquetas, ['mantenimiento', 'instalaciones'])
   })
 })

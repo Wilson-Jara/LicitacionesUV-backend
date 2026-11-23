@@ -112,7 +112,7 @@ Se asignan tareas de producto, arquitectura, código, integración, documentaci�
 
 ### 4. Crear una rama
 
-Si `develop` aún no existe, el equipo debe acordar su creación antes de seguir este flujo. No se debe trabajar directamente sobre `main` ni sobre `develop`. Toda tarea se desarrolla en su propia rama, creada **siempre desde `develop`**:
+No se debe trabajar directamente sobre `main` ni sobre `develop`. Toda tarea se desarrolla en su propia rama, creada **siempre desde `develop`** (comprobar en GitHub la configuración efectiva de protección de ramas antes de asumir bloqueos automáticos):
 
 ```bash
 git switch develop
@@ -139,7 +139,8 @@ Closes #[numero-del-issue]
 
 ### 7. Revisar y probar
 
-Una persona diferente del autor debe revisar el código. QA debe probar los criterios de aceptación y registrar cualquier problema. El equipo acuerda quién revisa cada PR; este backend todavía no configura asignación automática.
+QA (@StelleC) prueba los criterios de aceptación y registra los problemas. Otro integrante revisa el código. Ambos deben aprobar el PR antes de fusionarlo.
+Una persona diferente del autor debe revisar el código. QA debe probar los criterios de aceptación y registrar cualquier problema. Este repositorio incluye [`.github/CODEOWNERS`](../.github/CODEOWNERS) con los cinco integrantes del equipo para proponer revisores automáticamente cuando está integrado en la rama base (`develop`); sin embargo, que esa aprobación sea obligatoria antes del merge depende de la configuración efectiva de protección de ramas en GitHub (que debe comprobarse manualmente y no se modifica desde esta guía).
 
 ### 8. Validar y cerrar
 
@@ -148,8 +149,11 @@ El PM verifica que el resultado responda al objetivo del issue. Después de apro
 ## Reglas de revisión y validación
 
 - La persona que desarrolla no debe ser la única que valida su trabajo.
+- En `main` y `develop` se requieren dos aprobaciones de personas distintas del autor, una de @StelleC y otra de un integrante habilitado.
+- GitHub solicita a @StelleC mediante [`.github/CODEOWNERS`](../.github/CODEOWNERS). El autor solicita la segunda revisión en el panel **Reviewers**.
+- Cuando @StelleC prepara un cambio, otro integrante debe abrir el PR. GitHub impide aprobar un PR propio.
 - Todo Pull Request debe tener al menos un revisor diferente del autor.
-- La selección del revisor corresponde al equipo y no modifica permisos automáticamente.
+- [`.github/CODEOWNERS`](../.github/CODEOWNERS) propone revisores del equipo, pero no modifica permisos ni activa protección de ramas automáticamente; comprobar la configuración efectiva en GitHub.
 - Las revisiones deben buscar errores, imports sin usar, cambios innecesarios y problemas de accesibilidad.
 - QA debe comprobar el flujo principal y los casos de error.
 - Deben ejecutarse `npm run verify` y `npm run test:coverage` antes de cerrar un issue.
@@ -166,7 +170,7 @@ El PM verifica que el resultado responda al objetivo del issue. Después de apro
 - [ ] Se revisó el Pull Request.
 - [ ] Se probó el flujo principal.
 - [ ] Se probaron los casos de error relevantes.
-- [ ] `npm run lint` finaliza sin errores.
+- [ ] `npm run verify` finaliza sin errores (lint, formato y pruebas).
 - [ ] `npm run test:coverage` supera los umbrales.
 - [ ] Se documentaron las decisiones importantes.
 - [ ] El PM validó el resultado.

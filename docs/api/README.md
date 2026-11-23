@@ -4,6 +4,8 @@ API REST del repositorio independiente `LicitacionesUV-backend`, implementada co
 
 ## APIs del Entregable 2
 
+Además del endpoint de salud `GET /api/health` (ver [README del backend](../../README.md#endpoints)), la API expone los recursos de licitaciones:
+
 | API | Método y ruta               | Historia de usuario                       | Documentación                                      | Colección de Thunder Client                                                                              |
 | --- | --------------------------- | ----------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 1   | `GET /api/licitaciones`     | #43 Buscar licitaciones por palabra clave | [listado-licitaciones.md](listado-licitaciones.md) | [API1-buscar-licitaciones-HU43](../thunder-client/thunder-collection_API1-buscar-licitaciones-HU43.json) |
@@ -14,13 +16,12 @@ API REST del repositorio independiente `LicitacionesUV-backend`, implementada co
 ```bash
 cd LicitacionesUV-backend
 npm ci
-npm run db:setup
 npm start
 ```
 
-La API queda en `http://localhost:3000` y usa SQLite en `data/licitaciones.sqlite`.
-`db:setup` carga el catálogo propio `src/data/licitaciones.mock.json`. La ubicación
-se configura mediante `DATABASE_PATH`; no se requiere un servidor de base de datos.
+La API queda en `http://localhost:3000`. Sin `DATABASE_URL` usa el catálogo propio
+en memoria. Para PostgreSQL, configurar la conexión y ejecutar `npm run db:setup`
+antes del servidor. Ver [guía PostgreSQL](../PostgreSQL.md).
 
 ## Cómo ejecutar las pruebas con Thunder Client
 
@@ -41,14 +42,16 @@ Las colecciones de `docs/thunder-client/` son exportaciones hechas desde Thunder
 
 ## Contrato de una licitación
 
-| Campo         | Tipo   | Descripción                                |
-| ------------- | ------ | ------------------------------------------ |
-| `id`          | string | Identificador único (ej. `licitacion-001`) |
-| `title`       | string | Título de la licitación                    |
-| `amount`      | number | Monto estimado                             |
-| `currency`    | string | Moneda, código ISO 4217 (ej. `CLP`)        |
-| `institution` | string | Institución convocante                     |
-| `closingDate` | string | Fecha de cierre, formato `YYYY-MM-DD`      |
-| `type`        | string | Modalidad: `publica` o `privada`           |
-| `region`      | string | Clave de la región (ej. `valparaiso`)      |
-| `sourceUrl`   | string | URL de la publicación oficial              |
+| Campo         | Tipo           | Descripción                                                                                  |
+| ------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `id`          | string         | Identificador único (ej. `licitacion-001`)                                                   |
+| `title`       | string         | Título de la licitación                                                                      |
+| `amount`      | number         | Monto estimado: entero entre 0 y 9.007.199.254.740.991 (#7)                                  |
+| `currency`    | string         | Moneda, código ISO 4217 (ej. `CLP`)                                                          |
+| `institution` | string         | Institución convocante                                                                       |
+| `closingDate` | string         | Fecha de cierre, formato `YYYY-MM-DD`                                                        |
+| `type`        | string         | Modalidad: `publica` o `privada`                                                             |
+| `region`      | string         | Clave de la región (ej. `valparaiso`)                                                        |
+| `sector`      | string \| null | Sector normalizado (`finanzas`, `infraestructura` o `tecnologia`); `null` si no aplica (#94) |
+| `etiquetas`   | string[]       | Etiquetas normalizadas (ej. `software`); lista vacía si no tiene (#94)                       |
+| `sourceUrl`   | string         | URL de la publicación oficial                                                                |

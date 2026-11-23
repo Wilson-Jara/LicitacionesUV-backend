@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   buildListQuery,
   createMemoryLicitacionesRepository,
+  createPgLicitacionesRepository,
   mapLicitacionRow,
 } from '../src/data/licitaciones.repository.js'
 import { loadMockLicitaciones } from '../src/data/mockLicitaciones.js'
@@ -17,17 +18,19 @@ function contrato(licitacion) {
   )
 }
 
-// Fila SQLite con fecha ISO y monto numérico.
+// Fila tal como la devuelve pg: BIGINT como texto y la fecha ya formateada en SQL
 function filaDesde(licitacion) {
   return {
     id: licitacion.id,
     titulo: licitacion.title,
     institucion: licitacion.institution,
-    monto: licitacion.amount,
+    monto: String(licitacion.amount),
     moneda: licitacion.currency,
     fecha_cierre: licitacion.closingDate,
     tipo: licitacion.type,
     region_id: licitacion.region,
+    sector: licitacion.sector,
+    etiquetas: licitacion.etiquetas,
     url_fuente: licitacion.sourceUrl,
   }
 }
@@ -49,12 +52,50 @@ describe('buildListQuery', () => {
     assert.match(text, /ORDER BY id$/)
     assert.deepEqual(values, [])
   })
-  it('enlaza los valores de búsqueda sin interpolar SQL', () => {
-    const keyword = "software'; DROP TABLE licitaciones;--"
-    const { text, values } = buildListQuery({ keyword, region: 'VALPARAISO', tipo: 'Publica' })
-    assert.equal((text.match(/\?/g) || []).length, 3)
+
+  it('combina filtros con parámetros numerados, sin interpolar valores', () => {
+    const { text, values } = buildListQuery({
+      keyword: "software'; DROP TABLE licitaciones;--",
+      region: 'VALPARAISO',
+      tipo: 'Publica',
+    })
+    assert.match(text, /titulo ILIKE \$1/)
+    assert.doesNotMatch(text, /institucion ILIKE/)
+    assert.match(text, /lower\(region_id\) = lower\(\$2\)/)
+    assert.match(text, /lower\(tipo\) = lower\(\$3\)/)
     assert.doesNotMatch(text, /DROP TABLE/)
-    assert.deepEqual(values, [keyword, 'VALPARAISO', 'Publica'])
+    assert.deepEqual(values, ["%software'; DROP TABLE licitaciones;--%", 'VALPARAISO', 'Publica'])
+  })
+
+  it('escapa los comodines de LIKE en la palabra clave', () => {
+    assert.deepEqual(buildListQuery({ keyword: String.raw`50%_a\b` }).values, [
+      String.raw`%50\%\_a\\b%`,
+    ])
+  })
+})
+
+describe('createPgLicitacionesRepository', () => {
+  function fakeDb(rows) {
+    const consultas = []
+    return {
+      consultas,
+      async query(consulta) {
+        consultas.push(consulta)
+        return { rows }
+      },
+    }
+  }
+
+  it('list mapea las filas al contrato', async () => {
+    const db = fakeDb(mock.map(filaDesde))
+    assert.deepEqual(await createPgLicitacionesRepository(db).list({ tipo: 'publica' }), mock)
+    assert.deepEqual(db.consultas[0].values, ['publica'])
+  })
+
+  it('findById devuelve null cuando no hay filas', async () => {
+    const db = fakeDb([])
+    assert.equal(await createPgLicitacionesRepository(db).findById('no-existe'), null)
+    assert.deepEqual(db.consultas[0].values, ['no-existe'])
   })
 })
 
@@ -65,5 +106,27 @@ describe('createMemoryLicitacionesRepository', () => {
     assert.ok(resultado.length > 0)
     assert.ok(resultado.every((l) => l.region === 'valparaiso' && l.type === 'publica'))
     assert.equal(await repo.findById('no-existe'), null)
+  })
+})
+
+describe('mapLicitacionRow · sector y etiquetas (#94)', () => {
+  it('sin sector ni etiquetas entrega null y una lista vacía', () => {
+    const { sector, etiquetas, ...resto } = filaDesde(mock[0])
+    assert.ok(sector && etiquetas)
+    const mapeada = mapLicitacionRow({ ...resto, sector: null, etiquetas: null })
+    assert.equal(mapeada.sector, null)
+    assert.deepEqual(mapeada.etiquetas, [])
+  })
+
+  it('la migración 004 permite las mismas claves que usa el catálogo', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const sql = await readFile(
+      new URL('../migrations/postgresql/003_sector_etiquetas.sql', import.meta.url),
+      'utf8',
+    )
+    for (const licitacion of mock) {
+      if (licitacion.sector) assert.match(sql, new RegExp(`'${licitacion.sector}'`))
+      for (const etiqueta of licitacion.etiquetas) assert.match(sql, new RegExp(`'${etiqueta}'`))
+    }
   })
 })

@@ -33,6 +33,6 @@ function readPort() {
 export const config = {
   port: readPort(),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  databasePath: process.env.DATABASE_PATH || './data/licitaciones.sqlite',
+  databaseUrl: process.env.DATABASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || '',
 }

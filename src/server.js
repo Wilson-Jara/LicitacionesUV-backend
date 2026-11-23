@@ -1,36 +1,40 @@
 import { createServer } from 'node:http'
 import { createApp } from './app.js'
 import { config } from './config/env.js'
-import { createSqliteLicitacionesRepository } from './data/licitaciones.repository.js'
-import { openDatabase } from './db/connection.js'
-import { runMigrations } from './db/migrator.js'
+import { createPgLicitacionesRepository } from './data/licitaciones.repository.js'
 
-const db = openDatabase(config.databasePath)
-try {
-  await runMigrations(db)
-} catch (error) {
-  db.close()
-  throw error
+async function createLicitacionesRepository() {
+  if (!config.databaseUrl) {
+    console.warn('DATABASE_URL no definida: la API usa el catálogo propio en memoria')
+    return { repository: undefined, close: async () => {} }
+  }
+  // Carga diferida: pg solo se necesita cuando hay base de datos
+  const { createPool } = await import('./db/pool.js')
+  const pool = createPool(config.databaseUrl)
+  return { repository: createPgLicitacionesRepository(pool), close: () => pool.end() }
 }
-const server = createServer(
-  createApp({
-    licitacionesRepository: createSqliteLicitacionesRepository(db),
-  }),
-)
+
+const { repository, close } = await createLicitacionesRepository()
+const server = createServer(createApp({ licitacionesRepository: repository }))
+
 server.listen(config.port, () => {
   console.log(`API LicitacionesUV escuchando en http://localhost:${config.port}`)
 })
+
 server.on('error', (error) => {
   console.error(error.message)
-  db.close()
-  process.exitCode = 1
+  close().finally(() => {
+    process.exitCode = 1
+  })
 })
+
 function shutdown() {
   server.close(() => {
-    db.close()
-    process.exit(0)
+    close().finally(() => process.exit(0))
   })
+  // Cierra también las conexiones keep-alive para que close() termine de inmediato.
   server.closeAllConnections()
 }
+
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)

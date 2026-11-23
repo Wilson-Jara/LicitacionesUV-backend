@@ -1,3 +1,5 @@
+import { runInTransaction } from './transaction.js'
+
 /**
  * Inserta o actualiza en la tabla `licitaciones` las licitaciones recibidas
  * (normalmente el catálogo propio del backend, contrato REF-10).
@@ -12,11 +14,12 @@
  * @throws {Error} Si una inserción falla; la causa queda en `cause`.
  */
 export async function seedLicitaciones(client, licitaciones) {
-  await client.query('BEGIN')
-  try {
-    for (const licitacion of licitaciones) {
-      await client.query(
-        `INSERT INTO licitaciones
+  await runInTransaction(
+    client,
+    async () => {
+      for (const licitacion of licitaciones) {
+        await client.query(
+          `INSERT INTO licitaciones
           (id, titulo, institucion, monto, moneda, fecha_cierre, tipo, region_id, url_fuente)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id) DO UPDATE SET
@@ -28,23 +31,21 @@ export async function seedLicitaciones(client, licitaciones) {
           tipo = EXCLUDED.tipo,
           region_id = EXCLUDED.region_id,
           url_fuente = EXCLUDED.url_fuente`,
-        [
-          licitacion.id,
-          licitacion.title,
-          licitacion.institution,
-          licitacion.amount,
-          licitacion.currency,
-          licitacion.closingDate,
-          licitacion.type,
-          licitacion.region,
-          licitacion.sourceUrl,
-        ],
-      )
-    }
-    await client.query('COMMIT')
-  } catch (error) {
-    await client.query('ROLLBACK')
-    throw new Error(`Falló la carga del seed de licitaciones: ${error.message}`, { cause: error })
-  }
+          [
+            licitacion.id,
+            licitacion.title,
+            licitacion.institution,
+            licitacion.amount,
+            licitacion.currency,
+            licitacion.closingDate,
+            licitacion.type,
+            licitacion.region,
+            licitacion.sourceUrl,
+          ],
+        )
+      }
+    },
+    'Falló la carga del seed de licitaciones',
+  )
   return licitaciones.length
 }

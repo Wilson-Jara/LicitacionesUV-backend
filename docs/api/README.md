@@ -4,6 +4,8 @@ API REST del repositorio independiente `LicitacionesUV-backend`, implementada co
 
 ## APIs del Entregable 2
 
+Además del endpoint de salud `GET /api/health` (ver [README del backend](../../README.md#endpoints)), la API expone los recursos de licitaciones:
+
 | API | Método y ruta               | Historia de usuario                       | Documentación                                      | Colección de Thunder Client                                                                              |
 | --- | --------------------------- | ----------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 1   | `GET /api/licitaciones`     | #43 Buscar licitaciones por palabra clave | [listado-licitaciones.md](listado-licitaciones.md) | [API1-buscar-licitaciones-HU43](../thunder-client/thunder-collection_API1-buscar-licitaciones-HU43.json) |

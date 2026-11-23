@@ -90,8 +90,8 @@ El usuario de prueba necesita permiso para crear y eliminar sus esquemas.
 
 ## Datos anteriores
 
-Las carpetas `migrations/sqlite/` y `migrations/legacy-postgresql/` son históricas.
-No se ejecutan ni se alteran sus archivos. La línea PostgreSQL activa conserva el
+Las carpetas `migrations/sqlite/` y `migrations/legacy-postgresql/` son históricas
+(ver [guía histórica de SQLite](SQLite.md)). No se ejecutan ni se alteran sus archivos. La línea PostgreSQL activa conserva el
 esquema original, con los mismos nombres de migración. Para reutilizar una base
 PostgreSQL previa, una persona debe comprobar sus registros y respaldos antes de
 configurar la conexión. No existe un importador automático desde SQLite.

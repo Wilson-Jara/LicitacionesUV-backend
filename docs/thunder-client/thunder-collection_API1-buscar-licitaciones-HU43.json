@@ -273,7 +273,7 @@
             "_id": "0ea33ee8-9ed2-42bc-820c-70191531747c",
             "colId": "f34ac6f6-b32d-4203-8c3c-4b767ba16b49",
             "containerId": "",
-            "name": "TC-L09 Equivalencia: region inexistente devuelve lista vacia",
+            "name": "TC-L09 Equivalencia: region inexistente se ignora (#5)",
             "url": "http://localhost:3000/api/licitaciones?region=atacama",
             "method": "GET",
             "sortNum": 100000,
@@ -298,7 +298,7 @@
                     "type": "json-query",
                     "custom": "json",
                     "action": "count",
-                    "value": "0"
+                    "value": "6"
                 }
             ]
         },

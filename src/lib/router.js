@@ -21,7 +21,9 @@ function decodeParam(value) {
  * - La ruta debe coincidir completa; una barra final no coincide.
  * - Los caracteres especiales del patrón se escapan antes de armar la expresión regular.
  * - Los parámetros se decodifican; una codificación inválida responde 400.
- * - `req.params` y `req.query` quedan cargados antes de llamar al manejador.
+ * - `req.params`, `req.query` y `req.searchParams` quedan cargados antes de llamar al
+ *   manejador. `req.query` conserva solo el último valor de cada parámetro;
+ *   `req.searchParams` (`URLSearchParams`) conserva las repeticiones.
  *
  * @returns {{
  *   get: (pattern: string, handler: Function) => void,
@@ -65,6 +67,7 @@ export function createRouter() {
       req.params[key] = decodeParam(match[index + 1])
     })
     req.query = Object.fromEntries(url.searchParams)
+    req.searchParams = url.searchParams
     await route.handler(req, res)
     return true
   }

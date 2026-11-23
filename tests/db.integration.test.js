@@ -1,7 +1,9 @@
 import { after, before, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
-import { dirname, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createApp } from '../src/app.js'
 import {
@@ -57,6 +59,74 @@ describe('PostgreSQL real (integración)', { skip: motivoParaOmitir() }, () => {
       client.release()
     }
   })
+  it(
+    'serializa dos ejecuciones simultáneas y registra cada migración una vez',
+    { timeout: 10000 },
+    async () => {
+      const concurrentFixture = await crearBaseDePrueba()
+      const dir = await mkdtemp(join(tmpdir(), 'migraciones-concurrentes-'))
+      await writeFile(
+        join(dir, '001_concurrente.sql'),
+        'SELECT pg_sleep(0.2); CREATE TABLE prueba_concurrente (id INTEGER PRIMARY KEY);',
+      )
+      const first = await concurrentFixture.pool.connect()
+      const second = await concurrentFixture.pool.connect()
+      try {
+        const results = await Promise.all([runMigrations(first, dir), runMigrations(second, dir)])
+        assert.deepEqual(results.map((result) => result.length).sort(), [0, 1])
+        const { rows } = await concurrentFixture.pool.query(
+          'SELECT nombre, count(*)::int AS total FROM schema_migrations GROUP BY nombre',
+        )
+        assert.deepEqual(rows, [{ nombre: '001_concurrente.sql', total: 1 }])
+      } finally {
+        first.release()
+        second.release()
+        await concurrentFixture.close()
+        await rm(dir, { recursive: true, force: true })
+      }
+    },
+  )
+  it(
+    'libera la coordinación tras un fallo y permite reintentar lo pendiente',
+    { timeout: 10000 },
+    async () => {
+      const retryFixture = await crearBaseDePrueba()
+      const dir = await mkdtemp(join(tmpdir(), 'migraciones-reintento-'))
+      let first
+      let second
+      try {
+        await writeFile(
+          join(dir, '001_valida.sql'),
+          'CREATE TABLE primera (id INTEGER PRIMARY KEY);',
+        )
+        await writeFile(join(dir, '002_falla.sql'), 'CREATE TABLA invalida (id INTEGER);')
+        first = await retryFixture.pool.connect()
+        await assert.rejects(runMigrations(first, dir), /Falló la migración 002_falla\.sql/)
+        assert.deepEqual(
+          (await first.query('SELECT nombre FROM schema_migrations ORDER BY nombre')).rows,
+          [{ nombre: '001_valida.sql' }],
+        )
+        first.release()
+        first = undefined
+
+        await writeFile(
+          join(dir, '002_falla.sql'),
+          'CREATE TABLE segunda (id INTEGER PRIMARY KEY);',
+        )
+        second = await retryFixture.pool.connect()
+        assert.deepEqual(await runMigrations(second, dir), ['002_falla.sql'])
+        assert.deepEqual(
+          (await second.query('SELECT nombre FROM schema_migrations ORDER BY nombre')).rows,
+          [{ nombre: '001_valida.sql' }, { nombre: '002_falla.sql' }],
+        )
+      } finally {
+        first?.release()
+        second?.release()
+        await retryFixture.close()
+        await rm(dir, { recursive: true, force: true })
+      }
+    },
+  )
   it('carga el catálogo propio con upsert idempotente y revierte una carga fallida', async () => {
     const client = await pool.connect()
     try {

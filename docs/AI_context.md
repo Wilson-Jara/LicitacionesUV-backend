@@ -16,7 +16,7 @@ filtrado y detalle. Los errores de entrada devuelven 400, 404 o 413; los interno
 responden 500 genérico. El detalle comprueba la invariante del identificador.
 
 `src/data/licitaciones.repository.js` conserva la interfaz asíncrona y el contrato
-de nueve campos. SQL parametrizado, búsqueda literal solo por título y comparación
+de once campos (incluye `sector` y `etiquetas`). SQL parametrizado, búsqueda literal solo por título y comparación
 sin distinguir mayúsculas. La ruta HTTP recorta espacios externos de keyword.
 El monto se convierte de BIGINT a número y la fecha se entrega como YYYY-MM-DD.
 `src/data/licitaciones.mock.json` contiene seis ejemplos propios.
@@ -98,6 +98,10 @@ sesiones ni endpoints de escritura para usuarios, favoritos o aprobaciones.
 
 `docs/README.md`, `PostgreSQL.md`, `ModeloDatos.md`, `api/` y `CONTRIBUTING.md`
 describen operación, contratos y reglas. `SQLite.md` se identifica como guía histórica.
+`.github/CODEOWNERS` asigna todos los archivos a QA (@StelleC). La regla del equipo
+para `main` y `develop` exige su aprobación y la de otro integrante distinto del
+autor. GitHub aplica el requisito cuando el archivo está en la rama base y el
+ruleset exige dos aprobaciones y la revisión de propietarios de código.
 `.github/CODEOWNERS` lista a los cinco integrantes para proponer revisores en los
 PR hacia la rama base, pero la exigibilidad de aprobaciones y la protección de
 ramas dependen de la configuración efectiva del repositorio en GitHub.

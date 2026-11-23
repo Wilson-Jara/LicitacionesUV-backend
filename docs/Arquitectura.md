@@ -22,7 +22,7 @@ por zona horaria. El monto BIGINT pasa a número en el contrato HTTP.
 
 Se mantienen `/api/health`, `/api/licitaciones` y `/api/licitaciones/:id`, CORS y
 los errores JSON. Los fallos internos responden 500 genérico; no se exponen detalles
-al cliente. El contrato público conserva nueve campos.
+al cliente. El contrato público tiene once campos: los nueve originales más `sector` y `etiquetas`.
 
 La línea activa `migrations/postgresql/` crea las ocho entidades y regiones.
 Cada archivo y su registro comparten una transacción. El seed usa un catálogo

@@ -9,7 +9,7 @@ import {
   createMemoryLicitacionesRepository,
 } from '../src/data/licitaciones.repository.js'
 import { loadMockLicitaciones } from '../src/data/mockLicitaciones.js'
-import { runMigrations } from '../src/db/migrator.js'
+import { listMigrationFiles, runMigrations } from '../src/db/migrator.js'
 import { seedLicitaciones } from '../src/db/seed.js'
 import { crearBaseDePrueba, motivoParaOmitir } from './helpers/postgres.js'
 
@@ -32,7 +32,8 @@ describe('PostgreSQL real (integración)', { skip: motivoParaOmitir() }, () => {
   it('aplica las ocho entidades y las migraciones una sola vez', async () => {
     const client = await pool.connect()
     try {
-      assert.equal((await runMigrations(client, migrationsDir)).length, 3)
+      const archivos = await listMigrationFiles(migrationsDir)
+      assert.equal((await runMigrations(client, migrationsDir)).length, archivos.length)
       assert.deepEqual(await runMigrations(client, migrationsDir), [])
       const { rows } = await client.query(
         'SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()',
@@ -81,7 +82,7 @@ describe('PostgreSQL real (integración)', { skip: motivoParaOmitir() }, () => {
       client.release()
     }
   })
-  it('mantiene el contrato de nueve campos, detalle y filtros del repositorio en memoria', async () => {
+  it('mantiene el contrato de once campos, detalle y filtros del repositorio en memoria', async () => {
     const repo = createPgLicitacionesRepository(pool)
     const memory = createMemoryLicitacionesRepository(mock)
     assert.deepEqual(await repo.list(), mock)

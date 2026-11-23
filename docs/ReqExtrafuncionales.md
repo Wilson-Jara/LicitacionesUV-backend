@@ -59,4 +59,4 @@ Los REF son objetivos del sistema completo. La [arquitectura del backend](Arquit
 
 Los REF de prioridad **Media** son verificables con las herramientas del repositorio (ESLint, Prettier, `npm run verify`). Los de prioridad **Baja** mejoran la experiencia sin condicionar la línea base.
 
-En particular, el **REF-11** (restricción de proyecto) se operacionaliza con la protección de ramas, la plantilla de Pull Request y la asignación automática de revisores definida en el repositorio original `LicitacionesUV` (este backend no configura asignación automática).
+En particular, el **REF-11** (restricción de proyecto) se operacionaliza con las plantillas de issues y PR y con [`.github/CODEOWNERS`](../.github/CODEOWNERS) en este backend (que propone revisores del equipo desde la rama base), en línea con `LicitacionesUV`. No obstante, que las revisiones y el CI bloqueen efectivamente un merge depende de las reglas de protección configuradas en las ramas del repositorio en GitHub, por lo que su vigencia debe comprobarse directamente allí.

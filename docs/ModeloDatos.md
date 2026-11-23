@@ -24,16 +24,18 @@ quién debe aprobar: esas reglas no están implementadas en esta API.
 
 ## Contrato HTTP
 
-`mapLicitacionRow` convierte columnas SQL al contrato de nueve campos de la API:
-`id`, `title`, `amount`, `currency`, `institution`, `closingDate`, `type`, `region`
-y `sourceUrl`. El monto pasa a número y la fecha sale como `YYYY-MM-DD`.
+`mapLicitacionRow` convierte columnas SQL al contrato de once campos de la API:
+`id`, `title`, `amount`, `currency`, `institution`, `closingDate`, `type`, `region`,
+`sector`, `etiquetas` y `sourceUrl`. `sector` es opcional (`null`) y `etiquetas` es
+una lista que puede venir vacía; ambos usan las claves normalizadas del frontend y
+la migración `003_sector_etiquetas.sql` restringe sus valores. El monto pasa a número y la fecha sale como `YYYY-MM-DD`.
 
 **Dominio de los montos (#7).** Un `BIGINT` admite valores que un número JSON no
 representa con exactitud: por encima de `Number.MAX_SAFE_INTEGER`
 (9.007.199.254.740.991), `Number('9007199254740993')` devuelve 9007199254740992 y el
 monto cambiaría sin aviso. Por eso el contrato acepta enteros entre 0 y ese límite:
 
-- La migración `003_montos_enteros_seguros.sql` agrega un `CHECK` con ese tope a
+- La migración `004_montos_enteros_seguros.sql` agrega un `CHECK` con ese tope a
   `licitaciones.monto` y a los montos de `umbrales_aprobacion`. Antes de aplicarla en
   una base con datos, ejecutar las consultas de comprobación que trae el archivo.
 - Al leer, `montoDelContrato` (`src/lib/montos.js`) vuelve a validar el valor. Un monto

@@ -17,8 +17,9 @@ export async function seedLicitaciones(client, licitaciones) {
     for (const licitacion of licitaciones) {
       await client.query(
         `INSERT INTO licitaciones
-          (id, titulo, institucion, monto, moneda, fecha_cierre, tipo, region_id, url_fuente)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          (id, titulo, institucion, monto, moneda, fecha_cierre, tipo, region_id, url_fuente,
+            sector, etiquetas)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (id) DO UPDATE SET
           titulo = EXCLUDED.titulo,
           institucion = EXCLUDED.institucion,
@@ -27,7 +28,9 @@ export async function seedLicitaciones(client, licitaciones) {
           fecha_cierre = EXCLUDED.fecha_cierre,
           tipo = EXCLUDED.tipo,
           region_id = EXCLUDED.region_id,
-          url_fuente = EXCLUDED.url_fuente`,
+          url_fuente = EXCLUDED.url_fuente,
+          sector = EXCLUDED.sector,
+          etiquetas = EXCLUDED.etiquetas`,
         [
           licitacion.id,
           licitacion.title,
@@ -38,6 +41,8 @@ export async function seedLicitaciones(client, licitaciones) {
           licitacion.type,
           licitacion.region,
           licitacion.sourceUrl,
+          licitacion.sector ?? null,
+          licitacion.etiquetas ?? [],
         ],
       )
     }

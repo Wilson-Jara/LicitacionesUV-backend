@@ -46,7 +46,7 @@ export function createMemoryLicitacionesRepository(licitaciones) {
 const SELECT_LICITACION = `
   SELECT id, titulo, institucion, monto, moneda,
     to_char(fecha_cierre, 'YYYY-MM-DD') AS fecha_cierre,
-    tipo, region_id, url_fuente
+    tipo, region_id, sector, etiquetas, url_fuente
   FROM licitaciones`
 
 /**
@@ -58,8 +58,8 @@ const SELECT_LICITACION = `
  * para no depender de la zona horaria del servidor.
  *
  * @param {object} row - Fila con las columnas de `SELECT_LICITACION`.
- * @returns {{id: string, title: string, amount: number, currency: string, institution: string, closingDate: string, type: string, region: string, sourceUrl: string}}
- *   Licitación con los 9 campos del contrato.
+ * @returns {{id: string, title: string, amount: number, currency: string, institution: string, closingDate: string, type: string, region: string, sector: string|null, etiquetas: Array<string>, sourceUrl: string}}
+ *   Licitación con los 11 campos del contrato (los 9 originales más `sector` y `etiquetas`).
  */
 export function mapLicitacionRow(row) {
   return {
@@ -71,6 +71,9 @@ export function mapLicitacionRow(row) {
     closingDate: row.fecha_cierre,
     type: row.tipo,
     region: row.region_id,
+    // Opcionales en el contrato del frontend (#94): sector puede ser null; etiquetas, lista vacía
+    sector: row.sector ?? null,
+    etiquetas: row.etiquetas ?? [],
     sourceUrl: row.url_fuente,
   }
 }

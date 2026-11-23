@@ -9,7 +9,7 @@
  * Regla acordada: un monto válido es un entero entre 0 y `MONTO_MAXIMO`, ambos
  * inclusive; es la misma regla de enteros seguros que ya aplica el importador del
  * frontend (Wilson-Jara/LicitacionesUV#121). La base la exige con un `CHECK`
- * (migración 003) y la lectura la vuelve a comprobar antes de responder.
+ * (migración 004) y la lectura la vuelve a comprobar antes de responder.
  */
 
 /** Mayor monto representable sin pérdida en el contrato JSON. */

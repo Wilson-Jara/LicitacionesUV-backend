@@ -90,9 +90,9 @@ describe('lectura de montos en listado y detalle (#7)', () => {
     }
   })
 
-  it('la migración 003 limita los montos al mismo valor', async () => {
+  it('la migración 004 limita los montos al mismo valor', async () => {
     const sql = await readFile(
-      new URL('../migrations/postgresql/003_montos_enteros_seguros.sql', import.meta.url),
+      new URL('../migrations/postgresql/004_montos_enteros_seguros.sql', import.meta.url),
       'utf8',
     )
     assert.match(sql, /CHECK \(monto <= 9007199254740991\)/)

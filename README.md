@@ -52,7 +52,7 @@ ni se abre, borra o importa una base anterior. Ver [guía PostgreSQL](docs/Postg
 - `GET /api/licitaciones`: filtros combinados `keyword` (solo título), `region` y `tipo`.
 - `GET /api/licitaciones/:id`: detalle por identificador exacto o 404.
 
-Se conserva el contrato de nueve campos y la búsqueda literal sin distinguir
+Se conserva el contrato de datos (once campos, con `sector` y `etiquetas`) y la búsqueda literal sin distinguir
 mayúsculas; `%`, `_` y barras se buscan como texto. Los errores internos responden
 un mensaje genérico. Ver [contratos y colecciones](docs/api/README.md).
 
@@ -92,6 +92,10 @@ por archivo de contexto y 120.000 de cambios por PR. La revisión no aprueba ni
 fusiona cambios; el equipo conserva la revisión y aprobación humanas.
 
 ## Operación
+
+- **Configuración local:** copiar las claves documentadas desde [`.env.example`](.env.example) a un `.env` local no versionado y seguir [docs/PostgreSQL.md](docs/PostgreSQL.md) para migraciones, seed y base de pruebas (`_test`). La [guía de SQLite](docs/SQLite.md) se conserva únicamente como antecedente histórico.
+- **Contribución y revisión:** seguir [CONTRIBUTING.md](CONTRIBUTING.md) y [docs/roles-equipo.md](docs/roles-equipo.md). [`.github/CODEOWNERS`](.github/CODEOWNERS) propone revisores del equipo al abrir PR hacia la rama base, pero exigir aprobaciones, checks obligatorios y secretos de Actions (`DEEPSEEK_API_KEY`) depende de la configuración efectiva del repositorio y sus ramas en GitHub, que debe comprobarse manualmente.
+- **Gobernanza y pruebas:** consultar [docs/cobertura.md](docs/cobertura.md), [docs/api/README.md](docs/api/README.md) y [AGENTS.md](AGENTS.md).
 
 ## Frontend e integración futura
 

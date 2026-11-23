@@ -32,6 +32,8 @@ GET /api/licitaciones/licitacion-002
   "closingDate": "2026-10-15",
   "type": "privada",
   "region": "metropolitana",
+  "sector": "tecnologia",
+  "etiquetas": ["equipamiento", "hardware"],
   "sourceUrl": "https://www.mercadopublico.cl/"
 }
 ```

@@ -29,6 +29,8 @@ function filaDesde(licitacion) {
     fecha_cierre: licitacion.closingDate,
     tipo: licitacion.type,
     region_id: licitacion.region,
+    sector: licitacion.sector,
+    etiquetas: licitacion.etiquetas,
     url_fuente: licitacion.sourceUrl,
   }
 }
@@ -104,5 +106,27 @@ describe('createMemoryLicitacionesRepository', () => {
     assert.ok(resultado.length > 0)
     assert.ok(resultado.every((l) => l.region === 'valparaiso' && l.type === 'publica'))
     assert.equal(await repo.findById('no-existe'), null)
+  })
+})
+
+describe('mapLicitacionRow · sector y etiquetas (#94)', () => {
+  it('sin sector ni etiquetas entrega null y una lista vacía', () => {
+    const { sector, etiquetas, ...resto } = filaDesde(mock[0])
+    assert.ok(sector && etiquetas)
+    const mapeada = mapLicitacionRow({ ...resto, sector: null, etiquetas: null })
+    assert.equal(mapeada.sector, null)
+    assert.deepEqual(mapeada.etiquetas, [])
+  })
+
+  it('la migración 004 permite las mismas claves que usa el catálogo', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const sql = await readFile(
+      new URL('../migrations/postgresql/003_sector_etiquetas.sql', import.meta.url),
+      'utf8',
+    )
+    for (const licitacion of mock) {
+      if (licitacion.sector) assert.match(sql, new RegExp(`'${licitacion.sector}'`))
+      for (const etiqueta of licitacion.etiquetas) assert.match(sql, new RegExp(`'${etiqueta}'`))
+    }
   })
 })

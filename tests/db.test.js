@@ -121,6 +121,8 @@ describe('seedLicitaciones', () => {
       mock[0].type,
       mock[0].region,
       mock[0].sourceUrl,
+      mock[0].sector,
+      mock[0].etiquetas,
     ])
     assert.equal(client.queries[0].sql, 'BEGIN')
     assert.equal(client.queries.at(-1).sql, 'COMMIT')

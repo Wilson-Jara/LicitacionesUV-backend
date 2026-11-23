@@ -16,7 +16,7 @@ filtrado y detalle. Los errores de entrada devuelven 400, 404 o 413; los interno
 responden 500 genérico. El detalle comprueba la invariante del identificador.
 
 `src/data/licitaciones.repository.js` conserva la interfaz asíncrona y el contrato
-de nueve campos. SQL parametrizado, búsqueda literal solo por título y comparación
+de once campos (incluye `sector` y `etiquetas`). SQL parametrizado, búsqueda literal solo por título y comparación
 sin distinguir mayúsculas. La ruta HTTP recorta espacios externos de keyword.
 El monto se convierte de BIGINT a número y la fecha se entrega como YYYY-MM-DD.
 `src/data/licitaciones.mock.json` contiene seis ejemplos propios.

@@ -118,7 +118,7 @@ describe('mapLicitacionRow · sector y etiquetas (#94)', () => {
     assert.deepEqual(mapeada.etiquetas, [])
   })
 
-  it('la migración 003 permite las mismas claves que usa el catálogo', async () => {
+  it('la migración 004 permite las mismas claves que usa el catálogo', async () => {
     const { readFile } = await import('node:fs/promises')
     const sql = await readFile(
       new URL('../migrations/postgresql/003_sector_etiquetas.sql', import.meta.url),

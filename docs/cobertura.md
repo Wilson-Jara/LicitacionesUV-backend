@@ -13,6 +13,7 @@
 | `db.test.js`                      | Migraciones numeradas, ocho entidades, rollback y seed con dobles                                               |
 | `db.integration.test.js`          | PostgreSQL real, migraciones, seed idempotente y rollback, filtros Unicode, API y restricciones                 |
 | `cli.test.js`                     | Comandos sin configuración y servidor desde otra carpeta; comandos y servidor PostgreSQL con conexión de prueba |
+| `ai-review.test.js`               | Script `.github/scripts/ai-review.mjs` (redacción de secretos, exclusión de archivos sensibles y validaciones)  |
 
 Las pruebas PostgreSQL requieren `DATABASE_URL_TEST` y una base desechable cuyo
 nombre termine en `_test`. Cada suite crea y elimina su propio esquema, sin borrar

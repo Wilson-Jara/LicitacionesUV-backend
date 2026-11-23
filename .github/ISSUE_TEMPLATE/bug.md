@@ -26,7 +26,7 @@ assignees: ''
 
 ## Entorno
 
-- Node.js / SQLite / sistema operativo:
+- Node.js / PostgreSQL (o modo en memoria) / sistema operativo:
 - Versión o commit:
 - ¿Ocurre siempre o de forma intermitente?:
 
@@ -49,4 +49,5 @@ El bug se cierra solo si:
 
 - [ ] El defecto ya no se reproduce siguiendo los pasos indicados.
 - [ ] `npm run verify` pasa completo (lint, formato y pruebas).
+- [ ] `npm run test:coverage` cumple los umbrales configurados.
 - [ ] Existe revisión y aprobación de al menos un par (PR fusionado).

@@ -36,6 +36,8 @@ describe('GET /api/licitaciones', () => {
       'closingDate',
       'type',
       'region',
+      'sector',
+      'etiquetas',
       'sourceUrl',
     ]) {
       assert.ok(campo in licitacion, `falta el campo ${campo}`)
@@ -139,5 +141,26 @@ describe('rutas no registradas', () => {
     assert.equal(response.status, 404)
     const body = await response.json()
     assert.equal(body.error, 'Ruta no encontrada')
+  })
+})
+
+describe('sector y etiquetas en el contrato (#94)', () => {
+  it('el listado y el detalle entregan sector y etiquetas con claves normalizadas', async () => {
+    const lista = await (await fetch(`${baseUrl}/api/licitaciones`)).json()
+    for (const licitacion of lista) {
+      assert.ok(
+        licitacion.sector === null ||
+          ['finanzas', 'infraestructura', 'tecnologia'].includes(licitacion.sector),
+        licitacion.id,
+      )
+      assert.ok(Array.isArray(licitacion.etiquetas), licitacion.id)
+      assert.ok(
+        licitacion.etiquetas.every((e) => e === e.toLowerCase().trim()),
+        licitacion.id,
+      )
+    }
+    const detalle = await (await fetch(`${baseUrl}/api/licitaciones/licitacion-001`)).json()
+    assert.equal(detalle.sector, 'infraestructura')
+    assert.deepEqual(detalle.etiquetas, ['mantenimiento', 'instalaciones'])
   })
 })

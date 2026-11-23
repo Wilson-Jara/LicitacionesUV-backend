@@ -39,6 +39,8 @@ GET /api/licitaciones?keyword=software
     "closingDate": "2026-09-15",
     "type": "publica",
     "region": "valparaiso",
+    "sector": "tecnologia",
+    "etiquetas": ["software", "licencias"],
     "sourceUrl": "https://www.mercadopublico.cl/"
   }
 ]
@@ -67,7 +69,7 @@ Cuando ningún registro cumple los filtros, la respuesta es una lista vacía, no
 | CA3: sin coincidencias se informa "sin resultados"             | Lista vacía con `200 OK`                                                                                                                      | TC-L03, TC-L05, TC-L09  |
 | Catálogo completo sin filtros                                  | Sin parámetros devuelve todas las licitaciones                                                                                                | TC-L01                  |
 
-El contrato de datos (los 9 campos y sus tipos) se verifica en las pruebas automatizadas del backend (`npm run verify`). El tiempo de respuesta (REF-01, menos de 2 s) se observa en el campo **Time** de cada respuesta en Thunder Client.
+El contrato de datos (los 11 campos y sus tipos) se verifica en las pruebas automatizadas del backend (`npm run verify`). El tiempo de respuesta (REF-01, menos de 2 s) se observa en el campo **Time** de cada respuesta en Thunder Client.
 
 ## Casos de prueba (colección API 1, 10 casos)
 

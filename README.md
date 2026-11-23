@@ -52,7 +52,7 @@ ni se abre, borra o importa una base anterior. Ver [guía PostgreSQL](docs/Postg
 - `GET /api/licitaciones`: filtros combinados `keyword` (solo título), `region` y `tipo`.
 - `GET /api/licitaciones/:id`: detalle por identificador exacto o 404.
 
-Se conserva el contrato de nueve campos y la búsqueda literal sin distinguir
+Se conserva el contrato de datos (once campos, con `sector` y `etiquetas`) y la búsqueda literal sin distinguir
 mayúsculas; `%`, `_` y barras se buscan como texto. Los errores internos responden
 un mensaje genérico. Ver [contratos y colecciones](docs/api/README.md).
 

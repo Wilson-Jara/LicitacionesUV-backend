@@ -34,6 +34,15 @@ CI la proporciona. Cada suite usa su propio esquema temporal. Seguir
 
 El PR debe describir problema, comportamiento final, pruebas, límites y el issue
 correspondiente. Para issues del proyecto original usar la referencia completa
+`Wilson-Jara/LicitacionesUV#numero`. Antes del merge se requieren dos aprobaciones
+de personas distintas del autor, una de QA (@StelleC) y otra de un integrante
+habilitado. GitHub solicita a QA mediante [`.github/CODEOWNERS`](.github/CODEOWNERS)
+en la rama base. El autor solicita la segunda revisión en **Reviewers**.
+
+Los rulesets de `main` y `develop` deben exigir dos aprobaciones, la revisión de
+propietarios de código y el check `verify`. Cuando @StelleC prepara un cambio, otro
+integrante abre el PR porque GitHub impide aprobar un PR propio. Ver
+[docs/roles-equipo.md](docs/roles-equipo.md).
 `Wilson-Jara/LicitacionesUV#numero`. No afirmar que un PR está aprobado antes de la
 revisión de un par. [`.github/CODEOWNERS`](.github/CODEOWNERS) propone revisores
 del equipo cuando está integrado en la rama base, pero exigir su aprobación o
@@ -46,7 +55,7 @@ GitHub (que debe comprobarse manualmente y requiere decisión humana; ver tambi�
 - Objetivo y criterios cumplidos; regresiones relevantes verificadas.
 - Lint, formato y pruebas aprobados; cobertura dentro de los umbrales.
 - Documentación y contexto técnico actualizados.
-- Cambios revisados y aprobados por una persona distinta del autor antes de fusionar.
+- Cambios aprobados por QA (@StelleC) y por otro integrante distinto del autor antes de fusionar.
 - Evidencia de validación registrada, incluidas pruebas omitidas o no ejecutadas.
 
 Las IAs deben preguntar y obtener confirmación para cada comando Git/gh y cada

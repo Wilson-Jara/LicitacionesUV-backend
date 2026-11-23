@@ -40,14 +40,14 @@ Las colecciones de `docs/thunder-client/` son exportaciones hechas desde Thunder
 
 ## Contrato de una licitación
 
-| Campo         | Tipo   | Descripción                                |
-| ------------- | ------ | ------------------------------------------ |
-| `id`          | string | Identificador único (ej. `licitacion-001`) |
-| `title`       | string | Título de la licitación                    |
-| `amount`      | number | Monto estimado                             |
-| `currency`    | string | Moneda, código ISO 4217 (ej. `CLP`)        |
-| `institution` | string | Institución convocante                     |
-| `closingDate` | string | Fecha de cierre, formato `YYYY-MM-DD`      |
-| `type`        | string | Modalidad: `publica` o `privada`           |
-| `region`      | string | Clave de la región (ej. `valparaiso`)      |
-| `sourceUrl`   | string | URL de la publicación oficial              |
+| Campo         | Tipo   | Descripción                                                 |
+| ------------- | ------ | ----------------------------------------------------------- |
+| `id`          | string | Identificador único (ej. `licitacion-001`)                  |
+| `title`       | string | Título de la licitación                                     |
+| `amount`      | number | Monto estimado: entero entre 0 y 9.007.199.254.740.991 (#7) |
+| `currency`    | string | Moneda, código ISO 4217 (ej. `CLP`)                         |
+| `institution` | string | Institución convocante                                      |
+| `closingDate` | string | Fecha de cierre, formato `YYYY-MM-DD`                       |
+| `type`        | string | Modalidad: `publica` o `privada`                            |
+| `region`      | string | Clave de la región (ej. `valparaiso`)                       |
+| `sourceUrl`   | string | URL de la publicación oficial                               |

@@ -1,3 +1,5 @@
+import { montoDelContrato } from '../lib/montos.js'
+
 // Dos implementaciones con la misma interfaz asíncrona:
 //   list({ keyword, region, tipo }) -> Promise<Licitacion[]>
 //   findById(id) -> Promise<Licitacion | null>
@@ -51,7 +53,8 @@ const SELECT_LICITACION = `
  * Convierte una fila de la tabla `licitaciones` al contrato de datos del frontend (REF-10).
  *
  * Decisiones no evidentes: `pg` entrega los `BIGINT` como texto, por eso el monto se
- * convierte a número; la fecha de cierre ya llega como `YYYY-MM-DD` desde el SQL
+ * convierte a número con `montoDelContrato`, que rechaza (`MontoFueraDeRangoError`) un monto
+ * que no cabe sin pérdida en un número JSON (#7); la fecha de cierre ya llega como `YYYY-MM-DD` desde el SQL
  * para no depender de la zona horaria del servidor.
  *
  * @param {object} row - Fila con las columnas de `SELECT_LICITACION`.
@@ -62,7 +65,7 @@ export function mapLicitacionRow(row) {
   return {
     id: row.id,
     title: row.titulo,
-    amount: Number(row.monto),
+    amount: montoDelContrato(row.monto),
     currency: row.moneda,
     institution: row.institucion,
     closingDate: row.fecha_cierre,

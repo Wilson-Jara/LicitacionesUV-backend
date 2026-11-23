@@ -32,7 +32,7 @@ describe('PostgreSQL real (integración)', { skip: motivoParaOmitir() }, () => {
   it('aplica las ocho entidades y las migraciones una sola vez', async () => {
     const client = await pool.connect()
     try {
-      assert.equal((await runMigrations(client, migrationsDir)).length, 2)
+      assert.equal((await runMigrations(client, migrationsDir)).length, 3)
       assert.deepEqual(await runMigrations(client, migrationsDir), [])
       const { rows } = await client.query(
         'SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()',

@@ -21,6 +21,7 @@ Closes #
 ## Checklist
 
 - [ ] El PR apunta a `develop` (no a `main`)
+- [ ] Solicité la revisión de QA (@StelleC) y de otro integrante distinto del autor.
 - [ ] Al menos un revisor distinto del autor (propuesto por `.github/CODEOWNERS` desde la rama base; comprobar en GitHub si la protección de rama exige aprobación)
 - [ ] Sin credenciales, `.env`, `node_modules` ni artefactos generados
 - [ ] Documentación actualizada si corresponde

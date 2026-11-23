@@ -139,6 +139,7 @@ Closes #[numero-del-issue]
 
 ### 7. Revisar y probar
 
+QA (@StelleC) prueba los criterios de aceptación y registra los problemas. Otro integrante revisa el código. Ambos deben aprobar el PR antes de fusionarlo.
 Una persona diferente del autor debe revisar el código. QA debe probar los criterios de aceptación y registrar cualquier problema. Este repositorio incluye [`.github/CODEOWNERS`](../.github/CODEOWNERS) con los cinco integrantes del equipo para proponer revisores automáticamente cuando está integrado en la rama base (`develop`); sin embargo, que esa aprobación sea obligatoria antes del merge depende de la configuración efectiva de protección de ramas en GitHub (que debe comprobarse manualmente y no se modifica desde esta guía).
 
 ### 8. Validar y cerrar
@@ -148,6 +149,9 @@ El PM verifica que el resultado responda al objetivo del issue. Después de apro
 ## Reglas de revisión y validación
 
 - La persona que desarrolla no debe ser la única que valida su trabajo.
+- En `main` y `develop` se requieren dos aprobaciones de personas distintas del autor, una de @StelleC y otra de un integrante habilitado.
+- GitHub solicita a @StelleC mediante [`.github/CODEOWNERS`](../.github/CODEOWNERS). El autor solicita la segunda revisión en el panel **Reviewers**.
+- Cuando @StelleC prepara un cambio, otro integrante debe abrir el PR. GitHub impide aprobar un PR propio.
 - Todo Pull Request debe tener al menos un revisor diferente del autor.
 - [`.github/CODEOWNERS`](../.github/CODEOWNERS) propone revisores del equipo, pero no modifica permisos ni activa protección de ramas automáticamente; comprobar la configuración efectiva en GitHub.
 - Las revisiones deben buscar errores, imports sin usar, cambios innecesarios y problemas de accesibilidad.

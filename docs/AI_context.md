@@ -76,11 +76,13 @@ sin ella se omite la llamada. Se solicita otra revisión con la etiqueta
 script y en la rama predeterminada para atender eventos de issues.
 Las pruebas del revisor usan contenido ficticio y no hacen llamadas externas.
 
-## Validación local
+## Validación local histórica (28 de octubre de 2026, etapa SQLite)
 
-El 28 de octubre de 2026 pasaron verify y las 41 pruebas, incluida integración
-SQLite y servidor real, sin omisiones. La cobertura local fue 94,78 % líneas,
-95,73 % ramas y 97,87 % funciones. El workflow remoto no se ha ejecutado aquí.
+Antecedente previo a la adopción de PostgreSQL 16 (conservado como contexto
+histórico; la operación vigente usa PostgreSQL): el 28 de octubre de 2026 pasaron
+verify y las 41 pruebas, incluida integración SQLite y servidor real, sin omisiones.
+La cobertura local fue 94,78 % líneas, 95,73 % ramas y 97,87 % funciones. El
+workflow remoto no se ejecutó en esa revisión.
 
 ## Integración y documentación
 
@@ -94,6 +96,9 @@ describen operación, contratos y reglas. `SQLite.md` se identifica como guía h
 para `main` y `develop` exige su aprobación y la de otro integrante distinto del
 autor. GitHub aplica el requisito cuando el archivo está en la rama base y el
 ruleset exige dos aprobaciones y la revisión de propietarios de código.
+`.github/CODEOWNERS` lista a los cinco integrantes para proponer revisores en los
+PR hacia la rama base, pero la exigibilidad de aprobaciones y la protección de
+ramas dependen de la configuración efectiva del repositorio en GitHub.
 Los requisitos compartidos describen el producto completo, no funciones ya
 implementadas en esta API. Las validaciones locales no acreditan CI remoto.
 

@@ -6,6 +6,7 @@ import { createServer } from 'node:http'
 import { createApp } from '../src/app.js'
 import {
   GOOGLE_JWKS_URL,
+  INTERVALO_MINIMO_DESCARGA_MS,
   TokenGoogleInvalidoError,
   createGoogleIdTokenVerifier,
 } from '../src/auth/googleIdToken.js'
@@ -23,6 +24,7 @@ import {
 const CLIENT_ID = 'cliente-de-prueba.apps.googleusercontent.com'
 const AHORA = Date.UTC(2026, 10, 24, 12, 0, 0)
 const SECRETO = 'secreto-solo-para-pruebas'
+const ORIGEN_FRONTEND = 'https://licitacionesuv.vercel.app'
 
 // Par de claves falso: hace de Google sin red ni cuentas reales
 const google = generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -102,6 +104,43 @@ describe('createGoogleIdTokenVerifier', () => {
       })
     })
   }
+
+  it('un kid inventado no fuerza descargas repetidas de las claves', async () => {
+    let reloj = AHORA
+    const { fetchImpl, llamadas } = fetchClaves()
+    const v = createGoogleIdTokenVerifier({ clientId: CLIENT_ID, fetchImpl, ahora: () => reloj })
+    const tokenFalso = firmarToken({}, { cabecera: { kid: 'inventado' } })
+    for (let i = 0; i < 5; i++) {
+      await assert.rejects(v.verificar(tokenFalso), TokenGoogleInvalidoError)
+    }
+    assert.equal(llamadas.length, 1, 'cinco tokens falsos, una sola descarga')
+    reloj += INTERVALO_MINIMO_DESCARGA_MS + 1000
+    await assert.rejects(v.verificar(tokenFalso), TokenGoogleInvalidoError)
+    assert.equal(llamadas.length, 2, 'pasado el intervalo, se permite una descarga más')
+  })
+
+  it('sigue aceptando una clave nueva cuando Google rota sus claves', async () => {
+    let reloj = AHORA
+    let claves = []
+    const llamadas = []
+    const fetchImpl = async (url) => {
+      llamadas.push(url)
+      return { ok: true, status: 200, json: async () => ({ keys: claves }) }
+    }
+    const v = createGoogleIdTokenVerifier({ clientId: CLIENT_ID, fetchImpl, ahora: () => reloj })
+    await assert.rejects(v.verificar(firmarToken()), TokenGoogleInvalidoError)
+    claves = [jwk]
+    reloj += INTERVALO_MINIMO_DESCARGA_MS + 1000
+    assert.equal((await v.verificar(firmarToken({ exp: reloj / 1000 + 3600 }))).email, 'ana@uv.cl')
+    assert.equal(llamadas.length, 2)
+  })
+
+  it('las verificaciones simultáneas comparten una sola descarga', async () => {
+    const { fetchImpl, llamadas } = fetchClaves()
+    const v = verificador(fetchImpl)
+    await Promise.all([1, 2, 3].map(() => v.verificar(firmarToken())))
+    assert.equal(llamadas.length, 1)
+  })
 
   it('exige el Client ID', () => {
     assert.throws(() => createGoogleIdTokenVerifier({ clientId: '' }), /GOOGLE_CLIENT_ID/)
@@ -203,6 +242,7 @@ describe('rutas /api/auth', () => {
     verificadorGoogle: verificadorFalso,
     usuariosRepository: createMemoryUsuariosRepository(),
     secretoSesion: SECRETO,
+    origenPermitido: ORIGEN_FRONTEND,
   })
 
   function postJson(url, body) {
@@ -259,6 +299,44 @@ describe('rutas /api/auth', () => {
       assert.equal((await fetch(`${base}/api/licitaciones`)).status, 200)
     }).finally(() => {
       console.error = errorOriginal
+    })
+  })
+
+  it('CSRF: rechaza el login que no viene como JSON', async () => {
+    await conServidor(configurado(), async (base) => {
+      for (const tipo of [
+        'text/plain',
+        'application/x-www-form-urlencoded',
+        'multipart/form-data',
+      ]) {
+        const respuesta = await fetch(`${base}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': tipo },
+          body: JSON.stringify({ credential: 'token-bueno' }),
+        })
+        assert.equal(respuesta.status, 415, tipo)
+        assert.equal(respuesta.headers.get('set-cookie'), null, tipo)
+      }
+    })
+  })
+
+  it('CSRF: rechaza login y logout desde otro origen y acepta el del frontend', async () => {
+    await conServidor(configurado(), async (base) => {
+      const login = (origen) =>
+        fetch(`${base}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Origin: origen },
+          body: JSON.stringify({ credential: 'token-bueno' }),
+        })
+      const ajeno = await login('https://sitio-malicioso.example')
+      assert.equal(ajeno.status, 403)
+      assert.equal(ajeno.headers.get('set-cookie'), null)
+      assert.equal((await login(ORIGEN_FRONTEND)).status, 200)
+      const logoutAjeno = await fetch(`${base}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Origin: 'https://sitio-malicioso.example' },
+      })
+      assert.equal(logoutAjeno.status, 403)
     })
   })
 

@@ -6,6 +6,9 @@ export const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs'
 const EMISORES_GOOGLE = ['accounts.google.com', 'https://accounts.google.com']
 const TOLERANCIA_RELOJ_S = 60
 const CACHE_CLAVES_MS = 60 * 60 * 1000
+// Tiempo mínimo entre dos descargas forzadas: un token con un `kid` inventado no puede
+// obligar a la API a descargar las claves de Google en cada solicitud.
+export const INTERVALO_MINIMO_DESCARGA_MS = 5 * 60 * 1000
 
 /** El ID token no es válido: firma, emisor, audiencia, vigencia o correo no verificado. */
 export class TokenGoogleInvalidoError extends Error {
@@ -35,6 +38,10 @@ function decodificarSegmento(segmento, motivo) {
  * firma, emisor de Google, audiencia igual al Client ID, vigencia (`exp`, con 60 s de
  * tolerancia de reloj) y `email_verified`.
  *
+ * Las claves se guardan una hora. Si llega un `kid` desconocido (Google rotó sus
+ * claves), se vuelven a descargar, pero como máximo una vez cada
+ * `INTERVALO_MINIMO_DESCARGA_MS`; las solicitudes simultáneas comparten la misma descarga.
+ *
  * @param {object} options
  * @param {string} options.clientId - Client ID web de Google (`GOOGLE_CLIENT_ID`).
  * @param {typeof fetch} [options.fetchImpl=fetch] - `fetch` inyectable para probar sin red.
@@ -44,16 +51,27 @@ function decodificarSegmento(segmento, motivo) {
  */
 export function createGoogleIdTokenVerifier({ clientId, fetchImpl = fetch, ahora = Date.now }) {
   if (!clientId) throw new Error('Falta el Client ID de Google (GOOGLE_CLIENT_ID)')
-  let cache = { claves: null, vence: 0 }
+  let cache = { claves: null, vence: 0, descargadoEn: -Infinity }
+  let descargaEnCurso = null
+
+  async function descargarClaves() {
+    const respuesta = await fetchImpl(GOOGLE_JWKS_URL)
+    if (!respuesta.ok) {
+      throw new Error(`No se pudieron obtener las claves de Google (${respuesta.status})`)
+    }
+    const { keys } = await respuesta.json()
+    cache = { claves: keys, vence: ahora() + CACHE_CLAVES_MS, descargadoEn: ahora() }
+    return keys
+  }
 
   async function obtenerClaves(forzar = false) {
-    if (!forzar && cache.claves && ahora() < cache.vence) return cache.claves
-    const respuesta = await fetchImpl(GOOGLE_JWKS_URL)
-    if (!respuesta.ok)
-      throw new Error(`No se pudieron obtener las claves de Google (${respuesta.status})`)
-    const { keys } = await respuesta.json()
-    cache = { claves: keys, vence: ahora() + CACHE_CLAVES_MS }
-    return keys
+    const vigente = cache.claves && ahora() < cache.vence
+    const descargaReciente = ahora() - cache.descargadoEn < INTERVALO_MINIMO_DESCARGA_MS
+    if (vigente && (!forzar || descargaReciente)) return cache.claves
+    descargaEnCurso ??= descargarClaves().finally(() => {
+      descargaEnCurso = null
+    })
+    return descargaEnCurso
   }
 
   async function verificar(idToken) {

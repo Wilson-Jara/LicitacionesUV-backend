@@ -19,17 +19,39 @@ import {
  * Si falta `GOOGLE_CLIENT_ID` o `JWT_SECRET`, el login responde `503`: el resto de la
  * API sigue funcionando.
  *
+ * Protección contra solicitudes falsificadas entre sitios (CSRF): la cookie usa
+ * `SameSite=None`, así que el navegador la enviaría también desde otra página. Por eso
+ * las rutas que cambian la sesión exigen:
+ * - un encabezado `Origin`, si viene, igual a `CORS_ORIGIN` (si no, `403`);
+ * - en el login, `Content-Type: application/json` (si no, `415`). Un formulario HTML de
+ *   otro sitio no puede enviar ese tipo sin una consulta previa (preflight) que CORS rechaza.
+ *
  * @param {{register: Function, get: Function}} router - Enrutador de `createRouter()`.
  * @param {object} deps
  * @param {{verificar: Function} | null} deps.verificadorGoogle - Verificador de ID tokens, o `null` si no está configurado.
  * @param {{registrarGoogle: Function, findById: Function}} deps.usuariosRepository - Repositorio de usuarios.
  * @param {string} deps.secretoSesion - Secreto con que se firma la cookie (`JWT_SECRET`).
+ * @param {string} deps.origenPermitido - Único origen aceptado (`CORS_ORIGIN`).
  * @returns {void}
  */
 export function registerAuthRoutes(
   router,
-  { verificadorGoogle, usuariosRepository, secretoSesion },
+  { verificadorGoogle, usuariosRepository, secretoSesion, origenPermitido },
 ) {
+  function exigirOrigenPermitido(req) {
+    const origen = req.headers.origin
+    if (origen !== undefined && origen !== origenPermitido) {
+      throw new HttpError(403, 'Origen no permitido')
+    }
+  }
+
+  function exigirJson(req) {
+    const tipo = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    if (tipo !== 'application/json') {
+      throw new HttpError(415, 'El inicio de sesión exige Content-Type: application/json')
+    }
+  }
+
   function exigirConfiguracion() {
     if (!verificadorGoogle || !secretoSesion) {
       throw new HttpError(503, 'El inicio de sesión con Google no está configurado')
@@ -38,6 +60,8 @@ export function registerAuthRoutes(
 
   router.register('POST', '/api/auth/google', async (req, res) => {
     exigirConfiguracion()
+    exigirOrigenPermitido(req)
+    exigirJson(req)
     const credential = req.body?.credential
     if (typeof credential !== 'string' || !credential) {
       throw new HttpError(400, 'Falta el campo credential con el ID token de Google')
@@ -68,6 +92,7 @@ export function registerAuthRoutes(
   })
 
   router.register('POST', '/api/auth/logout', async (req, res) => {
+    exigirOrigenPermitido(req)
     res.setHeader('Set-Cookie', cookieSesion('', 0))
     res.writeHead(204)
     res.end()

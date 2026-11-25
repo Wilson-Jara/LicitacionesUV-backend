@@ -44,6 +44,7 @@ function applyCors(req, res) {
  * @param {{verificar: Function} | null} [options.verificadorGoogle] - Verificador de ID
  *   tokens; por defecto se crea con `GOOGLE_CLIENT_ID`, o `null` si no está definido.
  * @param {string} [options.secretoSesion] - Secreto de la cookie de sesión (`JWT_SECRET`).
+ * @param {string} [options.origenPermitido] - Origen aceptado por el login (`CORS_ORIGIN`).
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>}
  *   Manejador para `http.createServer`.
  */
@@ -54,11 +55,17 @@ export function createApp({
     ? createGoogleIdTokenVerifier({ clientId: config.googleClientId })
     : null,
   secretoSesion = config.jwtSecret,
+  origenPermitido = config.corsOrigin,
 } = {}) {
   const router = createRouter()
   registerHealthRoutes(router)
   registerLicitacionesRoutes(router, licitacionesRepository)
-  registerAuthRoutes(router, { verificadorGoogle, usuariosRepository, secretoSesion })
+  registerAuthRoutes(router, {
+    verificadorGoogle,
+    usuariosRepository,
+    secretoSesion,
+    origenPermitido,
+  })
 
   return async (req, res) => {
     try {

@@ -246,4 +246,9 @@ clave en `normalizarFiltrosListado` (`src/lib/filtrosListado.js`), aplicarla en
 | Intervención: migraciones concurrentes (#6)      | [docs/evidencia/migraciones-concurrentes.md](docs/evidencia/migraciones-concurrentes.md)                                                                                               |
 | Criterios de aceptación y calidad                | [docs/CriteriosAceptacion.md](docs/CriteriosAceptacion.md) · [docs/ReqExtrafuncionales.md](docs/ReqExtrafuncionales.md) · [docs/PerfilMedidasCalidad.md](docs/PerfilMedidasCalidad.md) |
 | Contribución, roles y reglas para IA             | [CONTRIBUTING.md](CONTRIBUTING.md) · [docs/roles-equipo.md](docs/roles-equipo.md) · [AGENTS.md](AGENTS.md) · [docs/AI_context.md](docs/AI_context.md)                                  |
+| Licencia y avisos de terceros                    | [LICENSE](LICENSE) · [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)                                                                                                                  |
 | Frontend y sus evidencias                        | [LicitacionesUV](https://github.com/Wilson-Jara/LicitacionesUV#evidencias-y-documentación)                                                                                             |
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia **MIT** (ver [`LICENSE`](LICENSE)). Los avisos de terceros correspondientes a `pg` y sus dependencias de ejecución están en [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

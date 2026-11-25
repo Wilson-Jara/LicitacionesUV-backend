@@ -57,3 +57,39 @@ la base de desarrollo.
 - Ejecución: https://github.com/Wilson-Jara/LicitacionesUV-backend/actions/runs/45064741286
 - La ejecución usa `licitaciones_test`, crea esquemas temporales y ejecuta
   `npm run verify` y `npm run test:coverage` sin omitir la integración.
+
+## Indicadores antes/después de `src/db/transaction.js` (C1)
+
+Medición reproducible sobre el historial de Git, contando las sentencias de
+control transaccional en `src/` (`git grep -nE "'(BEGIN|COMMIT|ROLLBACK)'"`).
+
+- **Antes:** `02af875`, último commit de `develop` previo al merge del PR #13.
+- **Después:** `eba71dc`, merge del PR #13 en `develop` (sin cambios posteriores
+  en `src/db/transaction.js` hasta la fecha de esta medición).
+
+| Indicador                                        | Antes | Después |  Variación |
+| ------------------------------------------------ | ----: | ------: | ---------: |
+| Repeticiones de `BEGIN` en `src/`                |     2 |       1 |         −1 |
+| Repeticiones de `COMMIT` en `src/`               |     2 |       1 |         −1 |
+| Repeticiones de `ROLLBACK` en `src/`             |     2 |       1 |         −1 |
+| Total de sentencias de control transaccional     |     6 |       3 | −3 (−50 %) |
+| Archivos con `BEGIN`/`COMMIT`/`ROLLBACK` propios |     2 |       1 | −1 (−50 %) |
+| Archivos a editar para cambiar la regla común    |     2 |       1 | −1 (−50 %) |
+| Llamadas a `runInTransaction` (migrator + seed)  |     0 |       2 |         +2 |
+
+Detalle por archivo:
+
+| Archivo                 | Antes (`BEGIN`/`COMMIT`/`ROLLBACK`) | Después                   |
+| ----------------------- | ----------------------------------- | ------------------------- |
+| `src/db/migrator.js`    | 1 / 1 / 1 (líneas 45, 49, 51)       | 0, usa `runInTransaction` |
+| `src/db/seed.js`        | 1 / 1 / 1 (líneas 15, 44, 46)       | 0, usa `runInTransaction` |
+| `src/db/transaction.js` | no existía                          | 1 / 1 / 1                 |
+
+Lectura: antes, cambiar la regla de confirmación o reversión exigía editar dos
+implementaciones equivalentes y mantenerlas sincronizadas. Después, la corrección
+posterior que conserva el error original cuando también falla el `ROLLBACK`
+(`16e8f1a`) cambió la regla solo en `src/db/transaction.js`; en `seed.js` ese
+commit únicamente reubicó el `import`. Las pruebas de `tests/db.test.js` siguen
+verificando que `ROLLBACK` sea la última sentencia emitida en los casos de fallo
+de migración y de seed, y el doble de prueba ahora puede simular además un fallo
+del propio `ROLLBACK`.

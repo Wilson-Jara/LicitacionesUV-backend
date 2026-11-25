@@ -44,8 +44,9 @@ ESLint y Prettier son herramientas de desarrollo, con versiones exactas.
 - `npm run verify`: lint + formato + pruebas; no requiere build.
 - `npm run test:coverage`: mínimo 70 % líneas, 70 % funciones y 60 % ramas.
 
-`.env.example` documenta PORT, CORS_ORIGIN, DATABASE_URL, DATABASE_URL_TEST
-y JWT_SECRET reservada.
+`.env.example` documenta PORT, CORS_ORIGIN, DATABASE_URL, DATABASE_URL_TEST,
+GOOGLE_CLIENT_ID y JWT_SECRET (login con Google: `src/auth/`, `src/routes/auth.routes.js`,
+`src/data/usuarios.repository.js`, migración 005; ver `docs/api/auth-google.md`).
 No leer ni modificar `.env` reales, secretos ni bases de desarrollo sin autorización.
 PostgreSQL se instala directamente en el equipo. La preparación manual del
 usuario y las bases de desarrollo y pruebas se describe en `docs/PostgreSQL.md`.

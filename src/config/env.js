@@ -34,5 +34,8 @@ export const config = {
   port: readPort(),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   databaseUrl: process.env.DATABASE_URL || '',
+  // Firma la cookie de sesión del login con Google; sin él, el login responde 503
   jwtSecret: process.env.JWT_SECRET || '',
+  // Client ID web de Google («Sign in with Google»); no es secreto
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
 }

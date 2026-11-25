@@ -77,6 +77,8 @@ ni se abre, borra o importa una base anterior. Ver [guía PostgreSQL](docs/Postg
 - `GET /api/health`: estado del servicio.
 - `GET /api/licitaciones`: filtros combinados `keyword` (solo título), `region` y `tipo`.
 - `GET /api/licitaciones/:id`: detalle por identificador exacto o 404.
+- `POST /api/auth/google`, `GET /api/auth/me`, `POST /api/auth/logout`: inicio de
+  sesión con Google (ver [Inicio de sesión con Google](#inicio-de-sesión-con-google)).
 
 Se conserva el contrato de datos (once campos, con `sector` y `etiquetas`) y la búsqueda literal sin distinguir
 mayúsculas; `%`, `_` y barras se buscan como texto. Los errores internos responden
@@ -177,8 +179,83 @@ responde `503` mientras arranca, y tarda alrededor de un minuto. Antes de una de
 abrir `/api/health` hasta obtener `200`.
 
 El consumo de la API de Mercado Público es una entrega posterior. No hay
-importador, ticket configurado, sesiones ni endpoints de escritura de favoritos o
+importador, ticket configurado ni endpoints de escritura de favoritos o
 aprobaciones implementados.
+
+## Inicio de sesión con Google
+
+El navegador obtiene un **ID token** de Google con Google Identity Services y lo
+envía a la API. La API lo verifica con la librería oficial `google-auth-library`
+(firma, emisor, audiencia = `GOOGLE_CLIENT_ID` y vencimiento), revisa
+`email_verified` y responde un **token de sesión** propio: un JWT HS256 firmado
+con `JWT_SECRET`. No se usa Client Secret ni redirección. Detalle completo en
+[docs/api/auth-google.md](docs/api/auth-google.md).
+
+### Variables
+
+| Variable               | Obligatoria        | Uso                                                                 |
+| ---------------------- | ------------------ | ------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | Sí, para el login  | Audiencia esperada del ID token de Google (no es secreto)           |
+| `JWT_SECRET`           | Sí, para el login  | Firma del token de sesión. Mínimo 32 caracteres aleatorios; secreto |
+| `AUTH_TOKEN_TTL_HORAS` | No (por defecto 8) | Duración de la sesión en horas                                      |
+
+Si falta `GOOGLE_CLIENT_ID` o `JWT_SECRET` (o tiene menos de 32 caracteres),
+`/api/auth/google` y `/api/auth/me` responden `503` y el catálogo funciona igual.
+
+### `POST /api/auth/google`
+
+```http
+POST /api/auth/google
+Content-Type: application/json
+
+{ "credential": "<ID token de Google>" }
+```
+
+```json
+{
+  "token": "<token de sesión firmado>",
+  "expiresAt": "2026-11-25T18:00:00.000Z",
+  "user": {
+    "id": "google:1234567890",
+    "name": "Ana Pérez",
+    "email": "ana@gmail.com",
+    "picture": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+Errores: `400 { "error": "Falta la credencial de Google" }`,
+`401 { "error": "Credencial de Google inválida" }` y
+`503 { "error": "Login con Google no configurado" }`.
+
+### `GET /api/auth/me`
+
+```http
+GET /api/auth/me
+Authorization: Bearer <token>
+```
+
+Responde `200 { "user": { ... } }` con la misma forma de usuario, o
+`401 { "error": "Sesión inválida o expirada" }`.
+
+### `POST /api/auth/logout`
+
+Responde siempre `204` sin cuerpo. La sesión no se guarda en el servidor: cerrar
+sesión es que el frontend borre su token. **Limitación:** un token robado sigue
+sirviendo hasta que vence (`AUTH_TOKEN_TTL_HORAS`).
+
+### Configurar en Render
+
+1. En el servicio `LicitacionesUV-backend`, abrir **Environment**.
+2. Agregar `GOOGLE_CLIENT_ID` con el Client ID web del proyecto en Google Cloud.
+3. Generar un secreto en la terminal y agregarlo como `JWT_SECRET` (no copiarlo
+   en el repositorio ni en el chat):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+4. Opcional: `AUTH_TOKEN_TTL_HORAS` (por defecto 8).
+5. Guardar: Render vuelve a desplegar. Comprobar que
+   `GET /api/auth/me` sin token responda `401` (no `503`).
 
 ## Problemas frecuentes
 

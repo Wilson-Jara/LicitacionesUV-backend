@@ -4,18 +4,28 @@ import { createRouter } from './lib/router.js'
 import { registerHealthRoutes } from './routes/health.routes.js'
 import { registerLicitacionesRoutes } from './routes/licitaciones.routes.js'
 import { registerAuthRoutes } from './routes/auth.routes.js'
-import { createGoogleIdTokenVerifier } from './auth/googleIdToken.js'
-import { createMemoryUsuariosRepository } from './data/usuarios.repository.js'
+import { createGoogleVerifier } from './auth/googleVerifier.js'
 import { createMemoryLicitacionesRepository } from './data/licitaciones.repository.js'
 import { loadMockLicitaciones } from './data/mockLicitaciones.js'
+
+// Contrato con el frontend: en el login, un cuerpo que no es JSON válido se informa
+// igual que una credencial ausente.
+async function leerCuerpo(req) {
+  try {
+    return await readJsonBody(req)
+  } catch (error) {
+    const esLogin = new URL(req.url, 'http://localhost').pathname === '/api/auth/google'
+    if (esLogin && error instanceof HttpError && error.status === 400) {
+      throw new HttpError(400, 'Falta la credencial de Google')
+    }
+    throw error
+  }
+}
 
 function applyCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', config.corsOrigin)
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  // La cookie de sesión viaja entre dominios (Vercel → Render): el origen es fijo, nunca '*'
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-  res.setHeader('Vary', 'Origin')
   if (req.method === 'OPTIONS') {
     res.writeHead(204)
     res.end()
@@ -39,33 +49,27 @@ function applyCors(req, res) {
  * @param {object} [options]
  * @param {{list: Function, findById: Function}} [options.licitacionesRepository] -
  *   Fuente de datos de licitaciones; por defecto, el catálogo de ejemplo local en memoria.
- * @param {{registrarGoogle: Function, findById: Function}} [options.usuariosRepository] -
- *   Usuarios del login con Google; por defecto, en memoria.
- * @param {{verificar: Function} | null} [options.verificadorGoogle] - Verificador de ID
- *   tokens; por defecto se crea con `GOOGLE_CLIENT_ID`, o `null` si no está definido.
- * @param {string} [options.secretoSesion] - Secreto de la cookie de sesión (`JWT_SECRET`).
- * @param {string} [options.origenPermitido] - Origen aceptado por el login (`CORS_ORIGIN`).
+ * @param {{verificar: (idToken: string) => Promise<object>} | null} [options.googleVerifier] -
+ *   Verificador de ID tokens de Google; por defecto usa `google-auth-library` con
+ *   `GOOGLE_CLIENT_ID`, o `null` si no está definido. En las pruebas se pasa uno falso.
+ * @param {{googleClientId: string, jwtSecret: string, authTokenTtlHoras: number}} [options.authConfig] -
+ *   Configuración del login; por defecto, la de `src/config/env.js`.
+ * @param {() => number} [options.ahora] - Reloj inyectable para el vencimiento de la sesión.
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>}
  *   Manejador para `http.createServer`.
  */
 export function createApp({
   licitacionesRepository = createMemoryLicitacionesRepository(loadMockLicitaciones()),
-  usuariosRepository = createMemoryUsuariosRepository(),
-  verificadorGoogle = config.googleClientId
-    ? createGoogleIdTokenVerifier({ clientId: config.googleClientId })
+  authConfig = config,
+  googleVerifier = authConfig.googleClientId
+    ? createGoogleVerifier({ clientId: authConfig.googleClientId })
     : null,
-  secretoSesion = config.jwtSecret,
-  origenPermitido = config.corsOrigin,
+  ahora = Date.now,
 } = {}) {
   const router = createRouter()
   registerHealthRoutes(router)
   registerLicitacionesRoutes(router, licitacionesRepository)
-  registerAuthRoutes(router, {
-    verificadorGoogle,
-    usuariosRepository,
-    secretoSesion,
-    origenPermitido,
-  })
+  registerAuthRoutes(router, { googleVerifier, config: authConfig, ahora })
 
   return async (req, res) => {
     try {
@@ -74,18 +78,20 @@ export function createApp({
       req.params = {}
       req.body = undefined
       if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-        req.body = await readJsonBody(req)
+        req.body = await leerCuerpo(req)
       }
       const handled = await router.handle(req, res)
       if (!handled) sendJson(res, 404, { error: 'Ruta no encontrada' })
     } catch (error) {
-      const status = error instanceof HttpError ? error.status : 500
-      if (status >= 500) {
-        console.error(error)
-        sendJson(res, status, { error: 'Error interno del servidor' })
+      // Un HttpError es un error controlado: se responde con su código y su mensaje,
+      // también los 5xx como el 503 del login sin configurar. Cualquier otro error es
+      // inesperado: se registra y se responde 500 genérico.
+      if (error instanceof HttpError) {
+        sendJson(res, error.status, { error: error.message })
         return
       }
-      sendJson(res, status, { error: error.message })
+      console.error(error)
+      sendJson(res, 500, { error: 'Error interno del servidor' })
     }
   }
 }

@@ -1,351 +1,284 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { generateKeyPairSync, sign } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { createApp } from '../src/app.js'
-import {
-  GOOGLE_JWKS_URL,
-  INTERVALO_MINIMO_DESCARGA_MS,
-  TokenGoogleInvalidoError,
-  createGoogleIdTokenVerifier,
-} from '../src/auth/googleIdToken.js'
-import {
-  COOKIE_SESION,
-  crearTokenSesion,
-  leerCookies,
-  leerTokenSesion,
-} from '../src/auth/sesion.js'
-import {
-  createMemoryUsuariosRepository,
-  createPgUsuariosRepository,
-} from '../src/data/usuarios.repository.js'
+import { createGoogleVerifier } from '../src/auth/googleVerifier.js'
+import { firmarSesion, verificarSesion } from '../src/lib/sesion.js'
+import { loginConfigurado } from '../src/routes/auth.routes.js'
 
-const CLIENT_ID = 'cliente-de-prueba.apps.googleusercontent.com'
-const AHORA = Date.UTC(2026, 10, 24, 12, 0, 0)
-const SECRETO = 'secreto-solo-para-pruebas'
-const ORIGEN_FRONTEND = 'https://licitacionesuv.vercel.app'
-
-// Par de claves falso: hace de Google sin red ni cuentas reales
-const google = generateKeyPairSync('rsa', { modulusLength: 2048 })
-const intruso = generateKeyPairSync('rsa', { modulusLength: 2048 })
-const jwk = { ...google.publicKey.export({ format: 'jwk' }), kid: 'clave-1', alg: 'RS256' }
-
-function b64(objeto) {
-  return Buffer.from(JSON.stringify(objeto)).toString('base64url')
+// Valores ficticios solo para pruebas; nunca un secreto real
+const SECRETO = 'secreto-de-prueba-con-mas-de-32-caracteres'
+const AHORA = Date.UTC(2026, 10, 25, 10, 0, 0)
+const CONFIG = {
+  googleClientId: 'cliente-de-prueba.apps.googleusercontent.com',
+  jwtSecret: SECRETO,
+  authTokenTtlHoras: 8,
+}
+const DATOS_GOOGLE = {
+  sub: '1234567890',
+  email: 'ana@gmail.com',
+  email_verified: true,
+  name: 'Ana Pérez',
+  picture: 'https://lh3.googleusercontent.com/a/foto',
+}
+const USUARIO = {
+  id: 'google:1234567890',
+  name: 'Ana Pérez',
+  email: 'ana@gmail.com',
+  picture: 'https://lh3.googleusercontent.com/a/foto',
 }
 
-function firmarToken(carga = {}, { cabecera = {}, clave = google.privateKey } = {}) {
-  const inicio = `${b64({ alg: 'RS256', kid: 'clave-1', typ: 'JWT', ...cabecera })}.${b64({
-    iss: 'https://accounts.google.com',
-    aud: CLIENT_ID,
-    sub: '1234567890',
-    email: 'ana@uv.cl',
-    email_verified: true,
-    name: 'Ana Pérez',
-    exp: AHORA / 1000 + 3600,
-    ...carga,
-  })}`
-  return `${inicio}.${sign('RSA-SHA256', Buffer.from(inicio), clave).toString('base64url')}`
-}
-
-function fetchClaves(claves = [jwk]) {
-  const llamadas = []
-  const fetchImpl = async (url) => {
-    llamadas.push(url)
-    return { ok: true, status: 200, json: async () => ({ keys: claves }) }
-  }
-  return { fetchImpl, llamadas }
-}
-
-function verificador(fetchImpl = fetchClaves().fetchImpl) {
-  return createGoogleIdTokenVerifier({ clientId: CLIENT_ID, fetchImpl, ahora: () => AHORA })
-}
-
-describe('createGoogleIdTokenVerifier', () => {
-  it('acepta un ID token válido y devuelve sub, correo y nombre', async () => {
-    const { fetchImpl, llamadas } = fetchClaves()
-    assert.deepEqual(await verificador(fetchImpl).verificar(firmarToken()), {
-      googleSub: '1234567890',
-      email: 'ana@uv.cl',
-      nombre: 'Ana Pérez',
-    })
-    assert.deepEqual(llamadas, [GOOGLE_JWKS_URL])
-  })
-
-  it('reutiliza las claves descargadas', async () => {
-    const { fetchImpl, llamadas } = fetchClaves()
-    const v = verificador(fetchImpl)
-    await v.verificar(firmarToken())
-    await v.verificar(firmarToken())
-    assert.equal(llamadas.length, 1)
-  })
-
-  const casosInvalidos = [
-    ['audiencia de otro cliente', () => firmarToken({ aud: 'otro-cliente' }), 'audiencia'],
-    ['token expirado', () => firmarToken({ exp: AHORA / 1000 - 120 }), 'expirado'],
-    ['correo no verificado', () => firmarToken({ email_verified: false }), 'correo no verificado'],
-    ['emisor que no es Google', () => firmarToken({ iss: 'https://evil.example' }), 'emisor'],
-    ['firmado con otra clave', () => firmarToken({}, { clave: intruso.privateKey }), 'firma'],
-    [
-      'clave desconocida',
-      () => firmarToken({}, { cabecera: { kid: 'otra' } }),
-      'clave desconocida',
-    ],
-    ['algoritmo none', () => firmarToken({}, { cabecera: { alg: 'none' } }), 'algoritmo'],
-    ['texto que no es JWT', () => 'no-es-un-token', 'formato'],
-  ]
-  for (const [nombre, crear, motivo] of casosInvalidos) {
-    it(`rechaza: ${nombre}`, async () => {
-      await assert.rejects(verificador().verificar(crear()), (error) => {
-        assert.ok(error instanceof TokenGoogleInvalidoError)
-        assert.equal(error.motivo, motivo)
-        return true
-      })
-    })
-  }
-
-  it('un kid inventado no fuerza descargas repetidas de las claves', async () => {
-    let reloj = AHORA
-    const { fetchImpl, llamadas } = fetchClaves()
-    const v = createGoogleIdTokenVerifier({ clientId: CLIENT_ID, fetchImpl, ahora: () => reloj })
-    const tokenFalso = firmarToken({}, { cabecera: { kid: 'inventado' } })
-    for (let i = 0; i < 5; i++) {
-      await assert.rejects(v.verificar(tokenFalso), TokenGoogleInvalidoError)
-    }
-    assert.equal(llamadas.length, 1, 'cinco tokens falsos, una sola descarga')
-    reloj += INTERVALO_MINIMO_DESCARGA_MS + 1000
-    await assert.rejects(v.verificar(tokenFalso), TokenGoogleInvalidoError)
-    assert.equal(llamadas.length, 2, 'pasado el intervalo, se permite una descarga más')
-  })
-
-  it('sigue aceptando una clave nueva cuando Google rota sus claves', async () => {
-    let reloj = AHORA
-    let claves = []
-    const llamadas = []
-    const fetchImpl = async (url) => {
-      llamadas.push(url)
-      return { ok: true, status: 200, json: async () => ({ keys: claves }) }
-    }
-    const v = createGoogleIdTokenVerifier({ clientId: CLIENT_ID, fetchImpl, ahora: () => reloj })
-    await assert.rejects(v.verificar(firmarToken()), TokenGoogleInvalidoError)
-    claves = [jwk]
-    reloj += INTERVALO_MINIMO_DESCARGA_MS + 1000
-    assert.equal((await v.verificar(firmarToken({ exp: reloj / 1000 + 3600 }))).email, 'ana@uv.cl')
-    assert.equal(llamadas.length, 2)
-  })
-
-  it('las verificaciones simultáneas comparten una sola descarga', async () => {
-    const { fetchImpl, llamadas } = fetchClaves()
-    const v = verificador(fetchImpl)
-    await Promise.all([1, 2, 3].map(() => v.verificar(firmarToken())))
-    assert.equal(llamadas.length, 1)
-  })
-
-  it('exige el Client ID', () => {
-    assert.throws(() => createGoogleIdTokenVerifier({ clientId: '' }), /GOOGLE_CLIENT_ID/)
-  })
-})
-
-describe('token de sesión', () => {
-  const usuario = { id: 'u-1', email: 'ana@uv.cl', nombre: 'Ana' }
-
-  it('se lee de vuelta mientras está vigente', () => {
-    const sesion = leerTokenSesion(crearTokenSesion(usuario, SECRETO, AHORA), SECRETO, AHORA)
-    assert.equal(sesion.sub, 'u-1')
-    assert.equal(sesion.email, 'ana@uv.cl')
-  })
-
-  it('rechaza un token alterado, vencido o firmado con otro secreto', () => {
-    const token = crearTokenSesion(usuario, SECRETO, AHORA)
-    const [carga, firma] = token.split('.')
-    const otraCarga = Buffer.from(JSON.stringify({ sub: 'admin', exp: 9e9 })).toString('base64url')
-    assert.equal(leerTokenSesion(`${otraCarga}.${firma}`, SECRETO, AHORA), null)
-    assert.equal(leerTokenSesion(`${carga}.${firma}x`, SECRETO, AHORA), null)
-    assert.equal(leerTokenSesion(token, 'otro-secreto', AHORA), null)
-    assert.equal(leerTokenSesion(token, SECRETO, AHORA + 9 * 3600 * 1000), null)
-    assert.equal(leerTokenSesion(undefined, SECRETO, AHORA), null)
-  })
-
-  it('lee las cookies de la cabecera', () => {
-    assert.deepEqual(leerCookies('a=1; licitacionesuv_sesion=x.y; b'), {
-      a: '1',
-      licitacionesuv_sesion: 'x.y',
-    })
-  })
-})
-
-describe('repositorios de usuarios', () => {
-  it('en memoria, la misma cuenta de Google conserva su id', async () => {
-    const repo = createMemoryUsuariosRepository()
-    const primero = await repo.registrarGoogle({ googleSub: 's1', email: 'a@uv.cl', nombre: 'A' })
-    const segundo = await repo.registrarGoogle({ googleSub: 's1', email: 'a@uv.cl', nombre: 'A2' })
-    assert.equal(primero.id, segundo.id)
-    assert.equal((await repo.findById(primero.id)).nombre, 'A2')
-    assert.equal(await repo.findById('no-existe'), null)
-  })
-
-  it('en PostgreSQL busca por sub, luego vincula por correo y si no, crea', async () => {
-    const consultas = []
-    const respuestas = [
-      { rows: [] },
-      { rows: [] },
-      { rows: [{ id: 'u-9', nombre: 'A', email: 'a@uv.cl', proveedor_auth: 'google' }] },
-    ]
-    const db = {
-      query: async (consulta) => {
-        consultas.push(consulta)
-        return respuestas.shift()
-      },
-    }
-    const usuario = await createPgUsuariosRepository(db).registrarGoogle({
-      googleSub: 's1',
-      email: 'a@uv.cl',
-      nombre: 'A',
-    })
-    assert.deepEqual(usuario, { id: 'u-9', nombre: 'A', email: 'a@uv.cl', proveedor: 'google' })
-    assert.match(consultas[0].text, /WHERE google_sub = \$1/)
-    assert.match(consultas[1].text, /lower\(email\) = lower\(\$3\) AND google_sub IS NULL/)
-    assert.match(consultas[2].text, /INSERT INTO usuarios/)
-    // Siempre con parámetros, nunca interpolando valores
-    for (const consulta of consultas) assert.ok(!consulta.text.includes('a@uv.cl'))
-  })
-
-  it('la migración 005 agrega google_sub único', async () => {
-    const sql = await readFile(
-      new URL('../migrations/postgresql/005_usuarios_google.sql', import.meta.url),
-      'utf8',
-    )
-    assert.match(sql, /ADD COLUMN google_sub TEXT/)
-    assert.match(sql, /CREATE UNIQUE INDEX usuarios_google_sub_unico ON usuarios \(google_sub\)/)
-  })
-})
-
-describe('rutas /api/auth', () => {
-  async function conServidor(opciones, prueba) {
-    const server = createServer(createApp(opciones))
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-    try {
-      await prueba(`http://127.0.0.1:${server.address().port}`)
-    } finally {
-      await new Promise((resolve) => server.close(resolve))
-    }
-  }
-
-  const verificadorFalso = {
-    async verificar(credential) {
-      if (credential !== 'token-bueno') throw new TokenGoogleInvalidoError('firma')
-      return { googleSub: 's1', email: 'ana@uv.cl', nombre: 'Ana' }
+/** Verificador falso: las pruebas nunca llaman a Google ni a internet. */
+function verificadorFalso(datos = DATOS_GOOGLE) {
+  const recibidos = []
+  return {
+    recibidos,
+    async verificar(idToken) {
+      recibidos.push(idToken)
+      if (idToken !== 'credencial-valida') throw new Error('Token used too late')
+      return datos
     },
   }
-  const configurado = () => ({
-    verificadorGoogle: verificadorFalso,
-    usuariosRepository: createMemoryUsuariosRepository(),
-    secretoSesion: SECRETO,
-    origenPermitido: ORIGEN_FRONTEND,
-  })
+}
 
-  function postJson(url, body) {
-    return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+async function conServidor(opciones, prueba) {
+  const server = createServer(createApp(opciones))
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  try {
+    await prueba(`http://127.0.0.1:${server.address().port}`)
+  } finally {
+    await new Promise((resolve) => server.close(resolve))
   }
+}
 
-  it('login → me → logout con cookie HttpOnly, Secure y SameSite=None', async () => {
-    await conServidor(configurado(), async (base) => {
-      const login = await postJson(`${base}/api/auth/google`, { credential: 'token-bueno' })
-      assert.equal(login.status, 200)
-      const { usuario } = await login.json()
-      assert.equal(usuario.email, 'ana@uv.cl')
-      const setCookie = login.headers.get('set-cookie')
-      assert.match(setCookie, new RegExp(`^${COOKIE_SESION}=`))
-      for (const atributo of ['HttpOnly', 'Secure', 'SameSite=None', 'Path=/']) {
-        assert.ok(setCookie.includes(atributo), atributo)
+function login(base, body) {
+  return fetch(`${base}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+function me(base, token) {
+  return fetch(`${base}/api/auth/me`, {
+    headers: token === undefined ? {} : { Authorization: `Bearer ${token}` },
+  })
+}
+
+describe('firmarSesion / verificarSesion', () => {
+  it('ida y vuelta: el token devuelve el mismo usuario y vence a las ttlHoras', () => {
+    const { token, expiresAt } = firmarSesion(USUARIO, {
+      secreto: SECRETO,
+      ttlHoras: 8,
+      ahora: AHORA,
+    })
+    assert.equal(expiresAt, '2026-11-25T18:00:00.000Z')
+    assert.deepEqual(verificarSesion(token, { secreto: SECRETO, ahora: AHORA }), USUARIO)
+    const [cabecera] = token.split('.')
+    assert.deepEqual(JSON.parse(Buffer.from(cabecera, 'base64url')), { alg: 'HS256', typ: 'JWT' })
+  })
+
+  it('rechaza una firma o un contenido alterado y otro secreto', () => {
+    const { token } = firmarSesion(USUARIO, { secreto: SECRETO, ttlHoras: 8, ahora: AHORA })
+    const [cabecera, carga, firma] = token.split('.')
+    const otraCarga = Buffer.from(JSON.stringify({ sub: 'google:admin', exp: 9e9 })).toString(
+      'base64url',
+    )
+    const opciones = { secreto: SECRETO, ahora: AHORA }
+    assert.equal(verificarSesion(`${cabecera}.${carga}.${firma.slice(0, -2)}xx`, opciones), null)
+    assert.equal(verificarSesion(`${cabecera}.${otraCarga}.${firma}`, opciones), null)
+    assert.equal(verificarSesion(token, { secreto: 'otro-secreto', ahora: AHORA }), null)
+    assert.equal(verificarSesion('no-es-un-jwt', opciones), null)
+    assert.equal(verificarSesion(undefined, opciones), null)
+  })
+
+  it('rechaza un token vencido', () => {
+    const { token } = firmarSesion(USUARIO, { secreto: SECRETO, ttlHoras: 1, ahora: AHORA })
+    const unaHoraDespues = AHORA + 3600 * 1000
+    assert.equal(verificarSesion(token, { secreto: SECRETO, ahora: unaHoraDespues }), null)
+    assert.ok(verificarSesion(token, { secreto: SECRETO, ahora: unaHoraDespues - 1000 }))
+  })
+})
+
+describe('createGoogleVerifier', () => {
+  it('delega en google-auth-library con la audiencia = GOOGLE_CLIENT_ID', async () => {
+    const llamadas = []
+    const client = {
+      async verifyIdToken(opciones) {
+        llamadas.push(opciones)
+        return { getPayload: () => DATOS_GOOGLE }
+      },
+    }
+    const verificador = createGoogleVerifier({ clientId: CONFIG.googleClientId, client })
+    assert.deepEqual(await verificador.verificar('id-token'), DATOS_GOOGLE)
+    assert.deepEqual(llamadas, [{ idToken: 'id-token', audience: CONFIG.googleClientId }])
+  })
+
+  it('lanza si el token no trae datos', async () => {
+    const client = { verifyIdToken: async () => ({ getPayload: () => undefined }) }
+    await assert.rejects(createGoogleVerifier({ clientId: 'x', client }).verificar('t'))
+  })
+})
+
+describe('POST /api/auth/google', () => {
+  it('200 con credencial válida: token, expiresAt y user con la forma del contrato', async () => {
+    const googleVerifier = verificadorFalso()
+    await conServidor({ authConfig: CONFIG, googleVerifier, ahora: () => AHORA }, async (base) => {
+      const respuesta = await login(base, { credential: 'credencial-valida' })
+      assert.equal(respuesta.status, 200)
+      const cuerpo = await respuesta.json()
+      assert.deepEqual(Object.keys(cuerpo).sort(), ['expiresAt', 'token', 'user'])
+      assert.deepEqual(cuerpo.user, USUARIO)
+      assert.equal(cuerpo.expiresAt, '2026-11-25T18:00:00.000Z')
+      assert.deepEqual(verificarSesion(cuerpo.token, { secreto: SECRETO, ahora: AHORA }), USUARIO)
+      assert.deepEqual(googleVerifier.recibidos, ['credencial-valida'])
+    })
+  })
+
+  it('picture es null si Google no la entrega', async () => {
+    const { picture, ...sinFoto } = DATOS_GOOGLE
+    assert.ok(picture)
+    await conServidor(
+      { authConfig: CONFIG, googleVerifier: verificadorFalso(sinFoto) },
+      async (base) => {
+        const { user } = await (await login(base, { credential: 'credencial-valida' })).json()
+        assert.equal(user.picture, null)
+      },
+    )
+  })
+
+  it('400 sin credential, con credential vacía o que no es texto', async () => {
+    await conServidor({ authConfig: CONFIG, googleVerifier: verificadorFalso() }, async (base) => {
+      for (const body of [{}, { credential: '' }, { credential: 123 }]) {
+        const respuesta = await login(base, body)
+        assert.equal(respuesta.status, 400, JSON.stringify(body))
+        assert.deepEqual(await respuesta.json(), { error: 'Falta la credencial de Google' })
       }
-      const cookie = setCookie.split(';')[0]
-
-      const me = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } })
-      assert.equal(me.status, 200)
-      assert.deepEqual((await me.json()).usuario, usuario)
-
-      const logout = await fetch(`${base}/api/auth/logout`, { method: 'POST' })
-      assert.equal(logout.status, 204)
-      assert.match(logout.headers.get('set-cookie'), /Max-Age=0/)
     })
   })
 
-  it('responde 401 sin sesión, con un token inválido y 400 sin credential', async () => {
-    await conServidor(configurado(), async (base) => {
-      assert.equal((await fetch(`${base}/api/auth/me`)).status, 401)
-      const cookieFalsa = `${COOKIE_SESION}=abc.def`
-      assert.equal(
-        (await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookieFalsa } })).status,
-        401,
-      )
-      assert.equal((await postJson(`${base}/api/auth/google`, { credential: 'malo' })).status, 401)
-      assert.equal((await postJson(`${base}/api/auth/google`, {})).status, 400)
-    })
-  })
-
-  it('sin GOOGLE_CLIENT_ID o JWT_SECRET responde 503 y el resto de la API sigue', async () => {
-    // El 503 se registra con console.error (como todo 5xx); se silencia solo en esta prueba
-    const errorOriginal = console.error
-    console.error = () => {}
-    await conServidor({ verificadorGoogle: null, secretoSesion: '' }, async (base) => {
-      assert.equal((await postJson(`${base}/api/auth/google`, { credential: 'x' })).status, 503)
-      assert.equal((await fetch(`${base}/api/auth/me`)).status, 503)
-      assert.equal((await fetch(`${base}/api/licitaciones`)).status, 200)
-    }).finally(() => {
-      console.error = errorOriginal
-    })
-  })
-
-  it('CSRF: rechaza el login que no viene como JSON', async () => {
-    await conServidor(configurado(), async (base) => {
-      for (const tipo of [
-        'text/plain',
-        'application/x-www-form-urlencoded',
-        'multipart/form-data',
-      ]) {
+  it('400 con cuerpo vacío o JSON inválido', async () => {
+    await conServidor({ authConfig: CONFIG, googleVerifier: verificadorFalso() }, async (base) => {
+      for (const body of ['', '{"credential": ']) {
         const respuesta = await fetch(`${base}/api/auth/google`, {
           method: 'POST',
-          headers: { 'Content-Type': tipo },
-          body: JSON.stringify({ credential: 'token-bueno' }),
+          headers: { 'Content-Type': 'application/json' },
+          body,
         })
-        assert.equal(respuesta.status, 415, tipo)
-        assert.equal(respuesta.headers.get('set-cookie'), null, tipo)
+        assert.equal(respuesta.status, 400, body)
+        assert.deepEqual(await respuesta.json(), { error: 'Falta la credencial de Google' })
       }
     })
   })
 
-  it('CSRF: rechaza login y logout desde otro origen y acepta el del frontend', async () => {
-    await conServidor(configurado(), async (base) => {
-      const login = (origen) =>
-        fetch(`${base}/api/auth/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Origin: origen },
-          body: JSON.stringify({ credential: 'token-bueno' }),
-        })
-      const ajeno = await login('https://sitio-malicioso.example')
-      assert.equal(ajeno.status, 403)
-      assert.equal(ajeno.headers.get('set-cookie'), null)
-      assert.equal((await login(ORIGEN_FRONTEND)).status, 200)
-      const logoutAjeno = await fetch(`${base}/api/auth/logout`, {
-        method: 'POST',
-        headers: { Origin: 'https://sitio-malicioso.example' },
-      })
-      assert.equal(logoutAjeno.status, 403)
+  it('401 cuando el verificador rechaza, sin registrar el token', async () => {
+    const registros = []
+    const errorOriginal = console.error
+    console.error = (...args) => registros.push(args)
+    try {
+      await conServidor(
+        { authConfig: CONFIG, googleVerifier: verificadorFalso() },
+        async (base) => {
+          const respuesta = await login(base, { credential: 'credencial-falsa' })
+          assert.equal(respuesta.status, 401)
+          assert.deepEqual(await respuesta.json(), { error: 'Credencial de Google inválida' })
+        },
+      )
+    } finally {
+      console.error = errorOriginal
+    }
+    assert.ok(!JSON.stringify(registros).includes('credencial-falsa'))
+  })
+
+  it('401 con email_verified: false', async () => {
+    const googleVerifier = verificadorFalso({ ...DATOS_GOOGLE, email_verified: false })
+    await conServidor({ authConfig: CONFIG, googleVerifier }, async (base) => {
+      const respuesta = await login(base, { credential: 'credencial-valida' })
+      assert.equal(respuesta.status, 401)
+      assert.deepEqual(await respuesta.json(), { error: 'Credencial de Google inválida' })
     })
   })
 
-  it('CORS permite credenciales para el origen configurado', async () => {
-    await conServidor(configurado(), async (base) => {
-      const preflight = await fetch(`${base}/api/auth/google`, { method: 'OPTIONS' })
-      assert.equal(preflight.status, 204)
-      assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true')
-      assert.notEqual(preflight.headers.get('access-control-allow-origin'), '*')
+  it('503 sin GOOGLE_CLIENT_ID o con un JWT_SECRET corto', async () => {
+    const errorOriginal = console.error
+    console.error = () => {}
+    try {
+      for (const authConfig of [
+        { ...CONFIG, googleClientId: '' },
+        { ...CONFIG, jwtSecret: '' },
+        { ...CONFIG, jwtSecret: 'corto' },
+      ]) {
+        await conServidor({ authConfig }, async (base) => {
+          const respuesta = await login(base, { credential: 'credencial-valida' })
+          assert.equal(respuesta.status, 503)
+          assert.deepEqual(await respuesta.json(), { error: 'Login con Google no configurado' })
+          assert.equal((await me(base, 'x')).status, 503)
+        })
+      }
+    } finally {
+      console.error = errorOriginal
+    }
+  })
+})
+
+describe('GET /api/auth/me', () => {
+  it('200 con el token recién emitido', async () => {
+    await conServidor({ authConfig: CONFIG, googleVerifier: verificadorFalso() }, async (base) => {
+      const { token, user } = await (await login(base, { credential: 'credencial-valida' })).json()
+      const respuesta = await me(base, token)
+      assert.equal(respuesta.status, 200)
+      assert.deepEqual(await respuesta.json(), { user })
+    })
+  })
+
+  it('401 sin header, con otro esquema o con firma alterada', async () => {
+    await conServidor({ authConfig: CONFIG, googleVerifier: verificadorFalso() }, async (base) => {
+      const { token } = await (await login(base, { credential: 'credencial-valida' })).json()
+      const casos = [
+        await fetch(`${base}/api/auth/me`),
+        await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Basic ${token}` } }),
+        await me(base, `${token.slice(0, -2)}xx`),
+      ]
+      for (const respuesta of casos) {
+        assert.equal(respuesta.status, 401)
+        assert.deepEqual(await respuesta.json(), { error: 'Sesión inválida o expirada' })
+      }
+    })
+  })
+
+  it('401 con token expirado (reloj inyectado)', async () => {
+    let reloj = AHORA
+    const opciones = { authConfig: CONFIG, googleVerifier: verificadorFalso(), ahora: () => reloj }
+    await conServidor(opciones, async (base) => {
+      const { token } = await (await login(base, { credential: 'credencial-valida' })).json()
+      reloj += 8 * 3600 * 1000
+      assert.equal((await me(base, token)).status, 401)
+    })
+  })
+})
+
+describe('POST /api/auth/logout', () => {
+  it('204 sin cuerpo, con o sin token y aunque falte configuración', async () => {
+    for (const opciones of [{ authConfig: CONFIG, googleVerifier: verificadorFalso() }, {}]) {
+      await conServidor(opciones, async (base) => {
+        for (const headers of [{}, { Authorization: 'Bearer cualquiera' }]) {
+          const respuesta = await fetch(`${base}/api/auth/logout`, { method: 'POST', headers })
+          assert.equal(respuesta.status, 204)
+          assert.equal(await respuesta.text(), '')
+        }
+      })
+    }
+  })
+})
+
+describe('catálogo sin variables de auth', () => {
+  it('/api/licitaciones sigue respondiendo 200', async () => {
+    const sinAuth = { googleClientId: '', jwtSecret: '', authTokenTtlHoras: 8 }
+    assert.equal(loginConfigurado(sinAuth), false)
+    await conServidor({ authConfig: sinAuth }, async (base) => {
+      const respuesta = await fetch(`${base}/api/licitaciones`)
+      assert.equal(respuesta.status, 200)
+      assert.equal((await respuesta.json()).length, 6)
     })
   })
 })

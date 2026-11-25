@@ -29,13 +29,20 @@ function readPort() {
   return Number.isInteger(port) && port > 0 && port < 65536 ? port : 3000
 }
 
+function readTtlHoras() {
+  const horas = Number(process.env.AUTH_TOKEN_TTL_HORAS)
+  return Number.isFinite(horas) && horas > 0 ? horas : 8
+}
+
 /** Configuración local; las variables exportadas tienen prioridad sobre .env. */
 export const config = {
   port: readPort(),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   databaseUrl: process.env.DATABASE_URL || '',
-  // Firma la cookie de sesión del login con Google; sin él, el login responde 503
+  // Firma el token de sesión del login con Google (32+ caracteres); sin él, /api/auth responde 503
   jwtSecret: process.env.JWT_SECRET || '',
-  // Client ID web de Google («Sign in with Google»); no es secreto
+  // Client ID web de Google («Sign in with Google»): audiencia del ID token; no es secreto
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  // Duración de la sesión en horas (por defecto 8)
+  authTokenTtlHoras: readTtlHoras(),
 }

@@ -11,6 +11,8 @@ Además del endpoint de salud `GET /api/health` (ver [README del backend](../../
 | 1   | `GET /api/licitaciones`     | #43 Buscar licitaciones por palabra clave | [listado-licitaciones.md](listado-licitaciones.md) | [API1-buscar-licitaciones-HU43](../thunder-client/thunder-collection_API1-buscar-licitaciones-HU43.json) |
 | 2   | `GET /api/licitaciones/:id` | #44 Ver el detalle de una licitación      | [detalle-licitacion.md](detalle-licitacion.md)     | [API2-detalle-licitacion-HU44](../thunder-client/thunder-collection_API2-detalle-licitacion-HU44.json)   |
 
+Inicio de sesión con Google (extra del Hito 3): `POST /api/auth/google`, `GET /api/auth/me` y `POST /api/auth/logout`. Ver [auth-google.md](auth-google.md).
+
 ## Cómo levantar la API
 
 ```bash

@@ -99,8 +99,9 @@ El frontend Vite vive por separado y aún usa su mock, sin consumir VITE_API_BAS
 CORS permite por defecto http://localhost:5173. No hay importador de Mercado Público,
 sesiones ni endpoints de escritura para usuarios, favoritos o aprobaciones.
 
-`docs/README.md`, `PostgreSQL.md`, `ModeloDatos.md`, `api/` y `CONTRIBUTING.md`
-describen operación, contratos y reglas. `SQLite.md` se identifica como guía histórica.
+`docs/README.md`, `PostgreSQL.md`, `ModeloDatos.md`, `api/`, `CONTRIBUTING.md`,
+`LICENSE` y `THIRD_PARTY_NOTICES.md` describen operación, contratos, reglas y
+licencias aplicables. `SQLite.md` se identifica como guía histórica.
 `.github/CODEOWNERS` asigna todos los archivos a QA (@StelleC). La regla del equipo
 para `main` y `develop` exige su aprobación y la de otro integrante distinto del
 autor. GitHub aplica el requisito cuando el archivo está en la rama base y el

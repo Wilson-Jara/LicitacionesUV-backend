@@ -2,20 +2,27 @@ import { createServer } from 'node:http'
 import { createApp } from './app.js'
 import { config } from './config/env.js'
 import { createPgLicitacionesRepository } from './data/licitaciones.repository.js'
+import { createPgUsuariosRepository } from './data/usuarios.repository.js'
 
 async function createLicitacionesRepository() {
   if (!config.databaseUrl) {
     console.warn('DATABASE_URL no definida: la API usa el catálogo propio en memoria')
-    return { repository: undefined, close: async () => {} }
+    return { repository: undefined, usuarios: undefined, close: async () => {} }
   }
   // Carga diferida: pg solo se necesita cuando hay base de datos
   const { createPool } = await import('./db/pool.js')
   const pool = createPool(config.databaseUrl)
-  return { repository: createPgLicitacionesRepository(pool), close: () => pool.end() }
+  return {
+    repository: createPgLicitacionesRepository(pool),
+    usuarios: createPgUsuariosRepository(pool),
+    close: () => pool.end(),
+  }
 }
 
-const { repository, close } = await createLicitacionesRepository()
-const server = createServer(createApp({ licitacionesRepository: repository }))
+const { repository, usuarios, close } = await createLicitacionesRepository()
+const server = createServer(
+  createApp({ licitacionesRepository: repository, usuariosRepository: usuarios }),
+)
 
 server.listen(config.port, () => {
   console.log(`API LicitacionesUV escuchando en http://localhost:${config.port}`)
